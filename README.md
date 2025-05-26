@@ -56,6 +56,7 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
    npm run test-nicknames   # Test if the bot can change nicknames (without actually changing them)
    npm run change-nicknames # Change everyone's nickname to a Dutch snack immediately
    npm run test-group-snack # Test the "Group Snack Event" where everyone gets the same snack
+   npm run check-timezone   # Check the server's timezone configuration
    ```
 
 ## Configuration
@@ -67,14 +68,14 @@ Configure the bot by creating a `.env` file in the root directory.
 ```
 BOT_TOKEN=YOUR_DISCORD_BOT_TOKEN
 CRON_SCHEDULE=0 9 * * *
-TIMEZONE=UTC
+# TIMEZONE=UTC  # Optional, defaults to server's local timezone
 ```
 
 ### Configuration Options
 
 - `BOT_TOKEN`: Your Discord bot token
 - `CRON_SCHEDULE`: When to send the message (in cron format)
-- `TIMEZONE`: The timezone for the cron schedule
+- `TIMEZONE`: The timezone for the cron schedule (optional, defaults to server's local timezone)
 
 ### Message Generation
 
@@ -101,7 +102,7 @@ To prevent users from muting the bot's messages:
 
 ### Dutch Snack Nicknames
 
-Every Monday at 3 AM, the bot will:
+Every Monday at 3 AM (server local time), the bot will:
 - Change everyone's nickname to a random Dutch snack (including other bots)
 - 10% chance for a "Group Snack Event" where everyone gets the same snack
 - Skip users with higher roles than the bot (due to Discord permissions)

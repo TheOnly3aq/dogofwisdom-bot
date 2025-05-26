@@ -1,10 +1,16 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
+const moment = require("moment-timezone");
+
+// Get the local server timezone
+const getLocalTimezone = () => {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+};
 
 // Load configuration from environment variables
 const config = {
   token: process.env.BOT_TOKEN,
-  timezone: process.env.TIMEZONE || "UTC",
+  timezone: getLocalTimezone(), // Use local server timezone
 };
 
 // Create a new Discord client

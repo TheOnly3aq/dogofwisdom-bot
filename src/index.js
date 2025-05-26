@@ -1,12 +1,18 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
+const moment = require("moment-timezone");
+
+// Get the local server timezone
+const getLocalTimezone = () => {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+};
 
 // Load configuration from environment variables
 const config = {
   token: process.env.BOT_TOKEN,
   cronSchedule: process.env.CRON_SCHEDULE || "0 12 * * *", // Default: 12:00 PM every day
-  timezone: process.env.TIMEZONE || "UTC",
+  timezone: getLocalTimezone(), // Use local server timezone
 };
 
 // Create a new Discord client
@@ -103,7 +109,11 @@ client.once("ready", () => {
     "0 3 * * 1", // At 3:00 AM every Monday
     async () => {
       try {
-        console.log("Starting weekly nickname changes to Dutch snacks...");
+        console.log(
+          `Starting weekly nickname changes to Dutch snacks... (${new Date().toLocaleString()} - ${
+            config.timezone
+          })`
+        );
 
         // Get all guilds the bot is in
         const guilds = client.guilds.cache;

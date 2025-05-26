@@ -9,7 +9,8 @@
     "send-now": "node src/send-now.js",
     "test-nicknames": "node src/test-nicknames.js",
     "change-nicknames": "node src/change-nicknames.js",
-    "test-group-snack": "node src/test-group-snack.js"
+    "test-group-snack": "node src/test-group-snack.js",
+    "check-timezone": "node src/check-timezone.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +19,7 @@
   "dependencies": {
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
+    "moment-timezone": "^0.6.0",
     "node-cron": "^4.0.7"
   }
 }
