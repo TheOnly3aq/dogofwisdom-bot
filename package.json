@@ -23,6 +23,7 @@
     "ffmpeg-static": "^5.2.0",
     "moment-timezone": "^0.6.0",
     "node-cron": "^4.0.7",
-    "ytdl-core": "^4.11.5"
+    "play-dl": "^1.9.7",
+    "ytdl-core": "^4.11.4"
   }
 }
