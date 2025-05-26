@@ -17,9 +17,12 @@
   "license": "ISC",
   "description": "A fun Discord bot that sends random Dog of Wisdom style messages to a random channel in your server, pinging a random user.",
   "dependencies": {
+    "@discordjs/voice": "^0.18.0",
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
+    "ffmpeg-static": "^5.2.0",
     "moment-timezone": "^0.6.0",
-    "node-cron": "^4.0.7"
+    "node-cron": "^4.0.7",
+    "ytdl-core": "^4.11.5"
   }
 }

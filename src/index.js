@@ -2,6 +2,13 @@ require("dotenv").config();
 const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
+const {
+  joinChannel,
+  leaveChannel,
+  playYouTube,
+  skipSong,
+  getQueue,
+} = require("./musicPlayer");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -21,6 +28,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
   partials: [Partials.Channel],
 });
@@ -325,6 +334,114 @@ async function sendDailyMessage() {
     console.error("Error in sendDailyMessage:", error);
   }
 }
+
+// Handle commands from messages
+client.on("messageCreate", async (message) => {
+  // Ignore messages from bots
+  if (message.author.bot) return;
+
+  // Check if the message starts with the prefix
+  const prefix = "!";
+  if (!message.content.startsWith(prefix)) return;
+
+  // Parse the command and arguments
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+
+  // Handle music commands
+  try {
+    if (command === "play" || command === "p") {
+      // Check if a URL was provided
+      if (!args.length) {
+        return message.reply("Please provide a YouTube URL!");
+      }
+
+      // Get the URL
+      const url = args[0];
+
+      // Send a loading message
+      const loadingMsg = await message.channel.send("🔄 Loading...");
+
+      // Play the YouTube video
+      const result = await playYouTube(message, url);
+
+      // Update the loading message with the result
+      if (result.success) {
+        loadingMsg.edit(result.message);
+      } else {
+        loadingMsg.edit(`❌ ${result.message}`);
+      }
+    } else if (command === "skip" || command === "s") {
+      // Skip the current song
+      const result = skipSong(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "queue" || command === "q") {
+      // Get the queue
+      const result = getQueue(message.guild.id);
+
+      if (!result.success) {
+        return message.channel.send(`❌ ${result.message}`);
+      }
+
+      // Format the queue
+      let queueMessage = "";
+
+      if (result.current) {
+        queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
+      }
+
+      if (result.queue.length) {
+        queueMessage += "**Queue:**\n";
+        result.queue.forEach((song, index) => {
+          queueMessage += `${index + 1}. ${song.title}\n`;
+        });
+      } else {
+        queueMessage += "**Queue is empty**";
+      }
+
+      message.channel.send(queueMessage);
+    } else if (
+      command === "leave" ||
+      command === "disconnect" ||
+      command === "dc"
+    ) {
+      // Leave the voice channel
+      const result = leaveChannel(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "join") {
+      // Join the voice channel
+      const result = await joinChannel(message);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "help") {
+      // Display help message for music commands
+      const helpMessage = `
+**Music Commands:**
+\`${prefix}play [YouTube URL]\` - Play a YouTube video
+\`${prefix}skip\` - Skip the current song
+\`${prefix}queue\` - Show the current queue
+\`${prefix}join\` - Join your voice channel
+\`${prefix}leave\` - Leave the voice channel
+\`${prefix}help\` - Show this help message
+
+**Aliases:**
+\`${prefix}p\` - Alias for play
+\`${prefix}s\` - Alias for skip
+\`${prefix}q\` - Alias for queue
+\`${prefix}dc\` - Alias for leave
+`;
+      message.channel.send(helpMessage);
+    }
+  } catch (error) {
+    console.error("Error handling command:", error);
+    message.channel.send(`❌ An error occurred: ${error.message}`);
+  }
+});
 
 // Login to Discord with the bot token
 client.login(config.token);
