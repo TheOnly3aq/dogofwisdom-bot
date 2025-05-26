@@ -118,21 +118,29 @@ Some examples of Dutch snacks used:
 
 ## Bot Commands
 
-The bot responds to the following commands:
+The bot supports both traditional prefix commands (starting with `!`) and Discord slash commands (starting with `/`).
 
 ### Music Commands
-- `!play [YouTube URL]` - Play a YouTube video in your voice channel (alias: `!p`)
-- `!skip` - Skip the current song (alias: `!s`)
-- `!queue` - Show the current music queue (alias: `!q`)
-- `!join` - Make the bot join your voice channel
-- `!leave` - Make the bot leave the voice channel (alias: `!dc`)
+- `!play [YouTube URL]` or `/play [YouTube URL]` - Play a YouTube video in your voice channel (alias: `!p`)
+- `!skip` or `/skip` - Skip the current song (alias: `!s`)
+- `!queue` or `/queue` - Show the current music queue (alias: `!q`)
+- `!join` or `/join` - Make the bot join your voice channel
+- `!leave` or `/leave` - Make the bot leave the voice channel (alias: `!dc`)
 - `!help` - Show the help message with all available commands
 
 ### Game Commands
-- `!roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal Company)
+- `!roll` or `/roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal Company)
 
 ### Admin Commands
-- `!toggledaily` - Toggle daily messages on/off (requires the admin role with ID: 1376665402758926487)
+- `!toggledaily` or `/toggledaily` - Toggle daily messages on/off (requires the admin role with ID: 1376665402758926487)
+- `!togglenicknames` or `/togglenicknames` - Toggle weekly nickname changes on/off (requires the admin role with ID: 1376665402758926487)
+
+### Using Slash Commands
+Slash commands provide these benefits:
+- Auto-completion and parameter hints
+- Better visibility in Discord's UI
+- No need to remember command prefixes
+- Admin commands are only shown to users with appropriate permissions
 
 ## Cron Schedule Format
 

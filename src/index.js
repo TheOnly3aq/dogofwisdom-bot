@@ -1,5 +1,13 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, Partials } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  PermissionFlagsBits,
+} = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
 const {
@@ -21,7 +29,8 @@ const config = {
   cronSchedule: process.env.CRON_SCHEDULE || "0 12 * * *", // Default: 12:00 PM every day
   timezone: getLocalTimezone(), // Use local server timezone
   dailyMessagesEnabled: true, // Default: daily messages are enabled
-  adminRoleId: "1376665402758926487", // Role ID that can control daily messages
+  nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
+  adminRoleId: "1376665402758926487", // Role ID that can control bot features
 };
 
 // Create a new Discord client
@@ -36,12 +45,81 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
+// Define slash commands
+const commands = [
+  // Roll command
+  new SlashCommandBuilder()
+    .setName('roll')
+    .setDescription('Roll a dice to decide what game to play')
+    .toJSON(),
+  
+  // Toggle daily messages command (admin only)
+  new SlashCommandBuilder()
+    .setName('toggledaily')
+    .setDescription('Toggle daily messages on/off')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
+    .toJSON(),
+  
+  // Toggle nickname changes command (admin only)
+  new SlashCommandBuilder()
+    .setName('togglenicknames')
+    .setDescription('Toggle weekly nickname changes on/off')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
+    .toJSON(),
+  
+  // Music commands
+  new SlashCommandBuilder()
+    .setName('play')
+    .setDescription('Play a YouTube video')
+    .addStringOption(option => 
+      option.setName('url')
+        .setDescription('The YouTube URL to play')
+        .setRequired(true))
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('skip')
+    .setDescription('Skip the current song')
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('queue')
+    .setDescription('Show the current music queue')
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('join')
+    .setDescription('Join your voice channel')
+    .toJSON(),
+  
+  new SlashCommandBuilder()
+    .setName('leave')
+    .setDescription('Leave the voice channel')
+    .toJSON(),
+];
+
 // Log when the bot is ready
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log(
     `Scheduled to send daily message at: ${config.cronSchedule} (${config.timezone})`
   );
+
+  // Register slash commands
+  try {
+    console.log("Started refreshing application (/) commands.");
+
+    const rest = new REST({ version: "10" }).setToken(config.token);
+
+    // Register commands globally (for all guilds)
+    await rest.put(Routes.applicationCommands(client.user.id), {
+      body: commands,
+    });
+
+    console.log("Successfully reloaded application (/) commands.");
+  } catch (error) {
+    console.error("Error refreshing application commands:", error);
+  }
 
   // Set a custom status for the bot
   setRandomStatus();
@@ -132,6 +210,14 @@ client.once("ready", () => {
     "0 3 * * 1", // At 3:00 AM every Monday
     async () => {
       try {
+        // Check if nickname changes are enabled
+        if (!config.nicknameChangesEnabled) {
+          console.log(
+            "Weekly nickname changes are disabled. Skipping nickname changes."
+          );
+          return;
+        }
+
         console.log(
           `Starting weekly nickname changes to Dutch snacks... (${new Date().toLocaleString()} - ${
             config.timezone
@@ -461,6 +547,26 @@ client.on("messageCreate", async (message) => {
 
       // Log the change
       console.log(`Daily messages ${status} by ${message.author.tag}`);
+    } else if (command === "togglenicknames") {
+      // Check if the user has the required admin role
+      const member = message.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return message.reply(
+          "❌ You don't have permission to use this command. You need the admin role."
+        );
+      }
+
+      // Toggle the nickname changes state
+      config.nicknameChangesEnabled = !config.nicknameChangesEnabled;
+
+      // Send confirmation message
+      const status = config.nicknameChangesEnabled ? "enabled" : "disabled";
+      message.channel.send(
+        `✅ Weekly nickname changes have been **${status}**!`
+      );
+
+      // Log the change
+      console.log(`Weekly nickname changes ${status} by ${message.author.tag}`);
     } else if (command === "help") {
       // Display help message for music commands
       const helpMessage = `
@@ -477,6 +583,7 @@ client.on("messageCreate", async (message) => {
 
 **Admin Commands:**
 \`${prefix}toggledaily\` - Toggle daily messages on/off (requires admin role)
+\`${prefix}togglenicknames\` - Toggle weekly nickname changes on/off (requires admin role)
 
 **Aliases:**
 \`${prefix}p\` - Alias for play
@@ -489,6 +596,146 @@ client.on("messageCreate", async (message) => {
   } catch (error) {
     console.error("Error handling command:", error);
     message.channel.send(`❌ An error occurred: ${error.message}`);
+  }
+});
+
+// Handle slash command interactions
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isCommand()) return;
+
+  const { commandName } = interaction;
+
+  try {
+    // Game commands
+    if (commandName === 'roll') {
+      // List of games to roll from
+      const games = ["Minecraft", "Repo", "Lethal Company"];
+      
+      // Randomly select a game
+      const randomGame = games[Math.floor(Math.random() * games.length)];
+      
+      // Send the result with a dice emoji
+      await interaction.reply(`🎲 The dice has been rolled! You should play: **${randomGame}**`);
+    } 
+    
+    // Admin commands
+    else if (commandName === 'toggledaily') {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content: "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true // Only visible to the command user
+        });
+      }
+      
+      // Toggle the daily messages state
+      config.dailyMessagesEnabled = !config.dailyMessagesEnabled;
+      
+      // Send confirmation message
+      const status = config.dailyMessagesEnabled ? "enabled" : "disabled";
+      await interaction.reply(`✅ Daily messages have been **${status}**!`);
+      
+      // Log the change
+      console.log(`Daily messages ${status} by ${interaction.user.tag}`);
+    } 
+    
+    else if (commandName === 'togglenicknames') {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content: "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true // Only visible to the command user
+        });
+      }
+      
+      // Toggle the nickname changes state
+      config.nicknameChangesEnabled = !config.nicknameChangesEnabled;
+      
+      // Send confirmation message
+      const status = config.nicknameChangesEnabled ? "enabled" : "disabled";
+      await interaction.reply(`✅ Weekly nickname changes have been **${status}**!`);
+      
+      // Log the change
+      console.log(`Weekly nickname changes ${status} by ${interaction.user.tag}`);
+    } 
+    
+    // Music commands
+    else if (commandName === 'play') {
+      // Get the URL from the options
+      const url = interaction.options.getString('url');
+      
+      // Defer the reply to give time for processing
+      await interaction.deferReply();
+      
+      // Play the YouTube video
+      const result = await playYouTube(interaction, url);
+      
+      // Send the result
+      if (result.success) {
+        await interaction.editReply(result.message);
+      } else {
+        await interaction.editReply(`❌ ${result.message}`);
+      }
+    } 
+    
+    else if (commandName === 'skip') {
+      // Skip the current song
+      const result = skipSong(interaction.guild.id);
+      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
+    } 
+    
+    else if (commandName === 'queue') {
+      // Get the queue
+      const result = getQueue(interaction.guild.id);
+      
+      if (!result.success) {
+        return interaction.reply(`❌ ${result.message}`);
+      }
+      
+      // Format the queue
+      let queueMessage = "";
+      
+      if (result.current) {
+        queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
+      }
+      
+      if (result.queue.length) {
+        queueMessage += "**Queue:**\n";
+        result.queue.forEach((song, index) => {
+          queueMessage += `${index + 1}. ${song.title}\n`;
+        });
+      } else {
+        queueMessage += "**Queue is empty**";
+      }
+      
+      await interaction.reply(queueMessage);
+    } 
+    
+    else if (commandName === 'join') {
+      // Join the voice channel
+      const result = await joinChannel(interaction);
+      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
+    } 
+    
+    else if (commandName === 'leave') {
+      // Leave the voice channel
+      const result = leaveChannel(interaction.guild.id);
+      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
+    }
+  } catch (error) {
+    console.error('Error handling slash command:', error);
+    
+    // If the interaction hasn't been replied to yet, send an error message
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ 
+        content: `❌ An error occurred: ${error.message}`, 
+        ephemeral: true 
+      });
+    } else if (interaction.deferred) {
+      await interaction.editReply(`❌ An error occurred: ${error.message}`);
+    }
   }
 });
 

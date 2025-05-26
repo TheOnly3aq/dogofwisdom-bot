@@ -18,38 +18,44 @@ const queues = new Map();
 const nowPlaying = new Map();
 
 // Function to join a voice channel
-async function joinChannel(interaction) {
+async function joinChannel(context) {
   try {
+    // Check if context is a message or interaction
+    const isInteraction = context.commandName !== undefined;
+
     // Check if user is in a voice channel
-    const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = context.member.voice.channel;
     if (!voiceChannel) {
-      return { success: false, message: "You need to be in a voice channel first!" };
+      return {
+        success: false,
+        message: "You need to be in a voice channel first!",
+      };
     }
 
     // Create a connection to the voice channel
     const connection = joinVoiceChannel({
       channelId: voiceChannel.id,
-      guildId: interaction.guild.id,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
+      guildId: context.guild.id,
+      adapterCreator: context.guild.voiceAdapterCreator,
     });
 
     // Create an audio player
     const player = createAudioPlayer({
       behaviors: {
         noSubscriber: NoSubscriberBehavior.Pause,
-      }
+      },
     });
 
     // Subscribe the connection to the audio player
     connection.subscribe(player);
 
     // Store the connection and player
-    connections.set(interaction.guild.id, connection);
-    players.set(interaction.guild.id, player);
-    
+    connections.set(context.guild.id, connection);
+    players.set(context.guild.id, player);
+
     // Initialize queue for this guild if it doesn't exist
-    if (!queues.has(interaction.guild.id)) {
-      queues.set(interaction.guild.id, []);
+    if (!queues.has(context.guild.id)) {
+      queues.set(context.guild.id, []);
     }
 
     // Set up event listeners for the connection
@@ -63,19 +69,19 @@ async function joinChannel(interaction) {
       } catch (error) {
         // Seems to be a real disconnect which SHOULDN'T be recovered from
         connection.destroy();
-        cleanup(interaction.guild.id);
+        cleanup(context.guild.id);
       }
     });
 
     // Set up event listeners for the player
     player.on(AudioPlayerStatus.Idle, () => {
       // When the current song ends, play the next one in queue
-      playNext(interaction.guild.id);
+      playNext(context.guild.id);
     });
 
-    player.on('error', error => {
+    player.on("error", (error) => {
       console.error(`Error: ${error.message} with resource`);
-      playNext(interaction.guild.id);
+      playNext(context.guild.id);
     });
 
     return { success: true, message: `Joined ${voiceChannel.name}!` };
@@ -103,7 +109,7 @@ function leaveChannel(guildId) {
 }
 
 // Function to play a YouTube video
-async function playYouTube(interaction, url) {
+async function playYouTube(context, url) {
   try {
     // Check if the URL is valid
     if (!play.yt_validate(url)) {
@@ -111,11 +117,11 @@ async function playYouTube(interaction, url) {
     }
 
     // Get the guild ID
-    const guildId = interaction.guild.id;
+    const guildId = context.guild.id;
 
     // Check if the bot is in a voice channel
     if (!connections.has(guildId)) {
-      const joinResult = await joinChannel(interaction);
+      const joinResult = await joinChannel(context);
       if (!joinResult.success) {
         return joinResult;
       }
@@ -196,7 +202,7 @@ async function playYouTube(interaction, url) {
         // Last resort: Use the URL as the title
         const videoId = ytdl.getVideoID(url);
         const simplifiedTitle = `YouTube Video (${videoId})`;
-        
+
         console.log(`Using simplified title for video: ${simplifiedTitle}`);
 
         // Add to queue with simplified title and assume it might be a short video
