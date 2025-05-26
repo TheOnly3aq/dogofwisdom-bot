@@ -126,9 +126,21 @@ async function playYouTube(interaction, url) {
       const videoInfo = await play.video_info(url);
       const videoTitle = videoInfo.video_details.title;
 
+      // Log video details for debugging
+      console.log(
+        `Video info retrieved: ${videoTitle} (Duration: ${videoInfo.video_details.durationInSec}s)`
+      );
+
+      // Add special flag for very short videos (like "Dog of Wisdom")
+      const isShortVideo = videoInfo.video_details.durationInSec < 60; // Less than 1 minute
+
       // Add to queue
       const queue = queues.get(guildId);
-      const queueItem = { url, title: videoTitle };
+      const queueItem = {
+        url,
+        title: videoTitle,
+        isShortVideo, // Flag to use special handling for short videos
+      };
       queue.push(queueItem);
 
       // If nothing is playing, start playing
@@ -150,9 +162,21 @@ async function playYouTube(interaction, url) {
         const ytdlInfo = await ytdl.getInfo(url);
         const videoTitle = ytdlInfo.videoDetails.title;
 
+        // Check if this is a short video
+        const durationInSec = parseInt(ytdlInfo.videoDetails.lengthSeconds);
+        const isShortVideo = durationInSec < 60; // Less than 1 minute
+
+        console.log(
+          `Fallback video info retrieved: ${videoTitle} (Duration: ${durationInSec}s)`
+        );
+
         // Add to queue
         const queue = queues.get(guildId);
-        const queueItem = { url, title: videoTitle };
+        const queueItem = {
+          url,
+          title: videoTitle,
+          isShortVideo,
+        };
         queue.push(queueItem);
 
         // If nothing is playing, start playing
@@ -172,10 +196,16 @@ async function playYouTube(interaction, url) {
         // Last resort: Use the URL as the title
         const videoId = ytdl.getVideoID(url);
         const simplifiedTitle = `YouTube Video (${videoId})`;
+        
+        console.log(`Using simplified title for video: ${simplifiedTitle}`);
 
-        // Add to queue with simplified title
+        // Add to queue with simplified title and assume it might be a short video
         const queue = queues.get(guildId);
-        const queueItem = { url, title: simplifiedTitle };
+        const queueItem = {
+          url,
+          title: simplifiedTitle,
+          isShortVideo: true, // Assume it's a short video for special handling
+        };
         queue.push(queueItem);
 
         // If nothing is playing, start playing
@@ -217,9 +247,18 @@ async function playNext(guildId) {
     }
 
     try {
+      // Check if this is a short video that might need special handling
+      if (nextSong.isShortVideo) {
+        console.log(
+          `Playing short video: ${nextSong.title} - Using special handling`
+        );
+      }
+
       // Use play-dl to stream the YouTube video
       const stream = await play.stream(nextSong.url, {
         discordPlayerCompatibility: true,
+        seek: 0,
+        quality: nextSong.isShortVideo ? 2 : 0, // Use lower quality for short videos
       });
 
       const resource = createAudioResource(stream.stream, {
@@ -253,10 +292,14 @@ async function playNext(guildId) {
 
       // Try fallback to ytdl-core
       try {
-        console.log("Trying fallback to ytdl-core...");
+        console.log(
+          `Trying fallback to ytdl-core for ${
+            nextSong.isShortVideo ? "short video" : "normal video"
+          }...`
+        );
         const fallbackStream = ytdl(nextSong.url, {
           filter: "audioonly",
-          quality: "highestaudio",
+          quality: nextSong.isShortVideo ? "lowestaudio" : "highestaudio", // Use lower quality for short videos
           highWaterMark: 1 << 25, // 32MB buffer
         });
 
@@ -285,13 +328,88 @@ async function playNext(guildId) {
       } catch (fallbackError) {
         console.error("Fallback streaming method failed:", fallbackError);
 
-        // Skip to the next song
-        setTimeout(() => playNext(guildId), 1000);
+        // Try a third approach with different ytdl options
+        try {
+          console.log(
+            `Trying last resort streaming method for ${nextSong.title}...`
+          );
 
-        return {
-          success: false,
-          message: `Couldn't play ${nextSong.title}, skipping to next song...`,
-        };
+          // For short videos like "Dog of Wisdom", try a different approach
+          let lastResortStream;
+
+          if (nextSong.isShortVideo) {
+            console.log("Using special handling for short video");
+
+            // Try with a direct YouTube URL format
+            const videoId = ytdl.getVideoID(nextSong.url);
+            const directUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            console.log(`Using direct URL: ${directUrl}`);
+
+            lastResortStream = ytdl(directUrl, {
+              filter: "audioonly",
+              quality: "lowestaudio",
+              highWaterMark: 1 << 25,
+              dlChunkSize: 0,
+              requestOptions: {
+                headers: {
+                  "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                },
+              },
+            });
+          } else {
+            // Standard approach for normal videos
+            lastResortStream = ytdl(nextSong.url, {
+              filter: "audioonly",
+              quality: "lowestaudio", // Always use lowest quality for last resort
+              highWaterMark: 1 << 25,
+              dlChunkSize: 0, // Get the entire file as a single chunk
+              requestOptions: {
+                headers: {
+                  "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                  Accept:
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                },
+              },
+            });
+          }
+
+          lastResortStream.on("error", (error) => {
+            console.error(`Last resort stream error: ${error.message}`);
+            // Skip to the next song if this one fails
+            setTimeout(() => playNext(guildId), 1000);
+          });
+
+          const resource = createAudioResource(lastResortStream, {
+            inlineVolume: true,
+          });
+
+          // Play the audio
+          player.play(resource);
+
+          // Store the currently playing song
+          nowPlaying.set(guildId, nextSong);
+
+          return {
+            success: true,
+            message: `Now playing: ${nextSong.title} (last resort method)`,
+            title: nextSong.title,
+          };
+        } catch (lastResortError) {
+          console.error(
+            "Last resort streaming method failed:",
+            lastResortError
+          );
+
+          // Skip to the next song
+          setTimeout(() => playNext(guildId), 1000);
+
+          return {
+            success: false,
+            message: `Couldn't play ${nextSong.title}, skipping to next song...`,
+          };
+        }
       }
     }
   } catch (error) {
