@@ -134,6 +134,11 @@ The bot supports both traditional prefix commands (starting with `!`) and Discor
 ### Admin Commands
 - `!toggledaily` or `/toggledaily` - Toggle daily messages on/off (requires the admin role with ID: 1376665402758926487)
 - `!togglenicknames` or `/togglenicknames` - Toggle weekly nickname changes on/off (requires the admin role with ID: 1376665402758926487)
+- `/send-now` - Send the daily message immediately (requires admin role)
+- `/test-nicknames` - Test the nickname change functionality without waiting for the schedule (requires admin role)
+- `/change-nicknames` - Manually change all nicknames to Dutch snacks (requires admin role)
+- `/test-group-snack` - Test the group snack event where everyone gets the same nickname (requires admin role)
+- `/check-timezone` - Check the current timezone configuration (requires admin role)
 
 ### Using Slash Commands
 Slash commands provide these benefits:

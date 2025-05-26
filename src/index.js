@@ -49,52 +49,93 @@ const client = new Client({
 const commands = [
   // Roll command
   new SlashCommandBuilder()
-    .setName('roll')
-    .setDescription('Roll a dice to decide what game to play')
+    .setName("roll")
+    .setDescription("Roll a dice to decide what game to play")
     .toJSON(),
-  
+
   // Toggle daily messages command (admin only)
   new SlashCommandBuilder()
-    .setName('toggledaily')
-    .setDescription('Toggle daily messages on/off')
+    .setName("toggledaily")
+    .setDescription("Toggle daily messages on/off")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
     .toJSON(),
-  
+
   // Toggle nickname changes command (admin only)
   new SlashCommandBuilder()
-    .setName('togglenicknames')
-    .setDescription('Toggle weekly nickname changes on/off')
+    .setName("togglenicknames")
+    .setDescription("Toggle weekly nickname changes on/off")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
     .toJSON(),
-  
+
+  // Send daily message now (admin only)
+  new SlashCommandBuilder()
+    .setName("send-now")
+    .setDescription("Send the daily message immediately")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
+  // Test nickname changes (admin only)
+  new SlashCommandBuilder()
+    .setName("test-nicknames")
+    .setDescription(
+      "Test the nickname change functionality without waiting for the schedule"
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
+  // Change nicknames manually (admin only)
+  new SlashCommandBuilder()
+    .setName("change-nicknames")
+    .setDescription("Manually change all nicknames to Dutch snacks")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
+  // Test group snack event (admin only)
+  new SlashCommandBuilder()
+    .setName("test-group-snack")
+    .setDescription(
+      "Test the group snack event where everyone gets the same nickname"
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
+  // Check timezone (admin only)
+  new SlashCommandBuilder()
+    .setName("check-timezone")
+    .setDescription("Check the current timezone configuration")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
   // Music commands
   new SlashCommandBuilder()
-    .setName('play')
-    .setDescription('Play a YouTube video')
-    .addStringOption(option => 
-      option.setName('url')
-        .setDescription('The YouTube URL to play')
-        .setRequired(true))
+    .setName("play")
+    .setDescription("Play a YouTube video")
+    .addStringOption((option) =>
+      option
+        .setName("url")
+        .setDescription("The YouTube URL to play")
+        .setRequired(true)
+    )
     .toJSON(),
-  
+
   new SlashCommandBuilder()
-    .setName('skip')
-    .setDescription('Skip the current song')
+    .setName("skip")
+    .setDescription("Skip the current song")
     .toJSON(),
-  
+
   new SlashCommandBuilder()
-    .setName('queue')
-    .setDescription('Show the current music queue')
+    .setName("queue")
+    .setDescription("Show the current music queue")
     .toJSON(),
-  
+
   new SlashCommandBuilder()
-    .setName('join')
-    .setDescription('Join your voice channel')
+    .setName("join")
+    .setDescription("Join your voice channel")
     .toJSON(),
-  
+
   new SlashCommandBuilder()
-    .setName('leave')
-    .setDescription('Leave the voice channel')
+    .setName("leave")
+    .setDescription("Leave the voice channel")
     .toJSON(),
 ];
 
@@ -640,67 +681,274 @@ client.on('interactionCreate', async interaction => {
       console.log(`Daily messages ${status} by ${interaction.user.tag}`);
     } 
     
-    else if (commandName === 'togglenicknames') {
+    else if (commandName === "togglenicknames") {
       // Check if the user has the required admin role
       const member = interaction.member;
       if (!member.roles.cache.has(config.adminRoleId)) {
         return interaction.reply({
-          content: "❌ You don't have permission to use this command. You need the admin role.",
-          ephemeral: true // Only visible to the command user
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true, // Only visible to the command user
         });
       }
-      
+
       // Toggle the nickname changes state
       config.nicknameChangesEnabled = !config.nicknameChangesEnabled;
-      
+
       // Send confirmation message
       const status = config.nicknameChangesEnabled ? "enabled" : "disabled";
-      await interaction.reply(`✅ Weekly nickname changes have been **${status}**!`);
-      
+      await interaction.reply(
+        `✅ Weekly nickname changes have been **${status}**!`
+      );
+
       // Log the change
-      console.log(`Weekly nickname changes ${status} by ${interaction.user.tag}`);
-    } 
-    
+      console.log(
+        `Weekly nickname changes ${status} by ${interaction.user.tag}`
+      );
+    }
+
+    // Admin command: send-now
+    else if (commandName === "send-now") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Send the daily message immediately
+        await sendDailyMessage();
+        await interaction.editReply("✅ Daily message has been sent manually!");
+        console.log(`Daily message sent manually by ${interaction.user.tag}`);
+      } catch (error) {
+        console.error("Error sending manual daily message:", error);
+        await interaction.editReply(
+          `❌ Error sending daily message: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: test-nicknames
+    else if (commandName === "test-nicknames") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the guild
+        const guild = interaction.guild;
+
+        // Test the nickname change functionality
+        console.log(
+          `Testing nickname changes in guild "${guild.name}" (initiated by ${interaction.user.tag})`
+        );
+
+        // Change nicknames to Dutch snacks
+        const result = await changeNicknamesToDutchSnacks(guild);
+
+        // Send the result
+        await interaction.editReply(
+          `✅ Nickname test complete!\n` +
+            `Success: ${result.success}\n` +
+            `Failed: ${result.failed}\n` +
+            `Skipped: ${result.skipped}\n` +
+            `${
+              result.groupSnackUsed
+                ? `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
+                : ""
+            }`
+        );
+      } catch (error) {
+        console.error("Error testing nickname changes:", error);
+        await interaction.editReply(
+          `❌ Error testing nickname changes: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: change-nicknames
+    else if (commandName === "change-nicknames") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the guild
+        const guild = interaction.guild;
+
+        // Change nicknames to Dutch snacks
+        console.log(
+          `Manually changing nicknames in guild "${guild.name}" (initiated by ${interaction.user.tag})`
+        );
+
+        const result = await changeNicknamesToDutchSnacks(guild);
+
+        // Send the result
+        await interaction.editReply(
+          `✅ Nicknames changed successfully!\n` +
+            `Success: ${result.success}\n` +
+            `Failed: ${result.failed}\n` +
+            `Skipped: ${result.skipped}\n` +
+            `${
+              result.groupSnackUsed
+                ? `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
+                : ""
+            }`
+        );
+      } catch (error) {
+        console.error("Error changing nicknames:", error);
+        await interaction.editReply(
+          `❌ Error changing nicknames: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: test-group-snack
+    else if (commandName === "test-group-snack") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the guild
+        const guild = interaction.guild;
+
+        // Force a group snack event
+        console.log(
+          `Testing group snack event in guild "${guild.name}" (initiated by ${interaction.user.tag})`
+        );
+
+        // Change nicknames to Dutch snacks with forced group snack
+        const result = await changeNicknamesToDutchSnacks(guild, true);
+
+        // Send the result
+        await interaction.editReply(
+          `✅ Group snack test complete!\n` +
+            `Success: ${result.success}\n` +
+            `Failed: ${result.failed}\n` +
+            `Skipped: ${result.skipped}\n` +
+            `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
+        );
+      } catch (error) {
+        console.error("Error testing group snack event:", error);
+        await interaction.editReply(
+          `❌ Error testing group snack event: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: check-timezone
+    else if (commandName === "check-timezone") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Get timezone information
+      const timezone = config.timezone;
+      const currentTime = new Date().toLocaleString("en-US", {
+        timeZone: timezone,
+      });
+      const dailySchedule = config.cronSchedule;
+      const weeklySchedule = "0 3 * * 1"; // Monday at 3 AM
+
+      // Format the response
+      const response = [
+        `**Timezone Configuration**`,
+        `Current timezone: \`${timezone}\``,
+        `Current time in this timezone: \`${currentTime}\``,
+        ``,
+        `**Schedules**`,
+        `Daily message schedule: \`${dailySchedule}\` (${
+          config.dailyMessagesEnabled ? "Enabled" : "Disabled"
+        })`,
+        `Weekly nickname schedule: \`${weeklySchedule}\` (${
+          config.nicknameChangesEnabled ? "Enabled" : "Disabled"
+        })`,
+      ].join("\n");
+
+      // Send the timezone information
+      await interaction.reply(response);
+      console.log(`Timezone information checked by ${interaction.user.tag}`);
+    }
+
     // Music commands
-    else if (commandName === 'play') {
+    else if (commandName === "play") {
       // Get the URL from the options
-      const url = interaction.options.getString('url');
-      
+      const url = interaction.options.getString("url");
+
       // Defer the reply to give time for processing
       await interaction.deferReply();
-      
+
       // Play the YouTube video
       const result = await playYouTube(interaction, url);
-      
+
       // Send the result
       if (result.success) {
         await interaction.editReply(result.message);
       } else {
         await interaction.editReply(`❌ ${result.message}`);
       }
-    } 
-    
-    else if (commandName === 'skip') {
+    } else if (commandName === "skip") {
       // Skip the current song
       const result = skipSong(interaction.guild.id);
-      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
-    } 
-    
-    else if (commandName === 'queue') {
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (commandName === "queue") {
       // Get the queue
       const result = getQueue(interaction.guild.id);
-      
+
       if (!result.success) {
         return interaction.reply(`❌ ${result.message}`);
       }
-      
+
       // Format the queue
       let queueMessage = "";
-      
+
       if (result.current) {
         queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
       }
-      
+
       if (result.queue.length) {
         queueMessage += "**Queue:**\n";
         result.queue.forEach((song, index) => {
@@ -709,20 +957,20 @@ client.on('interactionCreate', async interaction => {
       } else {
         queueMessage += "**Queue is empty**";
       }
-      
+
       await interaction.reply(queueMessage);
-    } 
-    
-    else if (commandName === 'join') {
+    } else if (commandName === "join") {
       // Join the voice channel
       const result = await joinChannel(interaction);
-      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
-    } 
-    
-    else if (commandName === 'leave') {
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (commandName === "leave") {
       // Leave the voice channel
       const result = leaveChannel(interaction.guild.id);
-      await interaction.reply(result.success ? result.message : `❌ ${result.message}`);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
     }
   } catch (error) {
     console.error('Error handling slash command:', error);
