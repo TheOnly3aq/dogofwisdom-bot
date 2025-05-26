@@ -20,6 +20,8 @@ const config = {
   token: process.env.BOT_TOKEN,
   cronSchedule: process.env.CRON_SCHEDULE || "0 12 * * *", // Default: 12:00 PM every day
   timezone: getLocalTimezone(), // Use local server timezone
+  dailyMessagesEnabled: true, // Default: daily messages are enabled
+  adminRoleId: "1376665402758926487", // Role ID that can control daily messages
 };
 
 // Create a new Discord client
@@ -84,7 +86,14 @@ client.once("ready", () => {
       prepCronSchedule,
       async () => {
         try {
-          await prepareCategories();
+          // Only prepare categories if daily messages are enabled
+          if (config.dailyMessagesEnabled) {
+            await prepareCategories();
+          } else {
+            console.log(
+              "Daily messages are disabled. Skipping category preparation."
+            );
+          }
         } catch (error) {
           console.error("Error preparing categories:", error);
         }
@@ -100,7 +109,12 @@ client.once("ready", () => {
     config.cronSchedule,
     async () => {
       try {
-        await sendDailyMessage();
+        // Only send daily message if enabled
+        if (config.dailyMessagesEnabled) {
+          await sendDailyMessage();
+        } else {
+          console.log("Daily messages are disabled. Skipping daily message.");
+        }
       } catch (error) {
         console.error("Error sending daily message:", error);
       }
@@ -421,12 +435,32 @@ client.on("messageCreate", async (message) => {
     } else if (command === "roll") {
       // List of games to roll from
       const games = ["Minecraft", "Repo", "Lethal Company"];
-      
+
       // Randomly select a game
       const randomGame = games[Math.floor(Math.random() * games.length)];
-      
+
       // Send the result with a dice emoji
-      message.channel.send(`🎲 The dice has been rolled! You should play: **${randomGame}**`);
+      message.channel.send(
+        `🎲 The dice has been rolled! You should play: **${randomGame}**`
+      );
+    } else if (command === "toggledaily") {
+      // Check if the user has the required admin role
+      const member = message.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return message.reply(
+          "❌ You don't have permission to use this command. You need the admin role."
+        );
+      }
+
+      // Toggle the daily messages state
+      config.dailyMessagesEnabled = !config.dailyMessagesEnabled;
+
+      // Send confirmation message
+      const status = config.dailyMessagesEnabled ? "enabled" : "disabled";
+      message.channel.send(`✅ Daily messages have been **${status}**!`);
+
+      // Log the change
+      console.log(`Daily messages ${status} by ${message.author.tag}`);
     } else if (command === "help") {
       // Display help message for music commands
       const helpMessage = `
@@ -440,6 +474,9 @@ client.on("messageCreate", async (message) => {
 
 **Game Commands:**
 \`${prefix}roll\` - Roll a dice to decide what game to play
+
+**Admin Commands:**
+\`${prefix}toggledaily\` - Toggle daily messages on/off (requires admin role)
 
 **Aliases:**
 \`${prefix}p\` - Alias for play

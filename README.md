@@ -129,7 +129,10 @@ The bot responds to the following commands:
 - `!help` - Show the help message with all available commands
 
 ### Game Commands
-- `!roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal)
+- `!roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal Company)
+
+### Admin Commands
+- `!toggledaily` - Toggle daily messages on/off (requires the admin role with ID: 1376665402758926487)
 
 ## Cron Schedule Format
 
