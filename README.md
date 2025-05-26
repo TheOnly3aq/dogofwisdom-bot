@@ -58,6 +58,7 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
    npm run change-nicknames # Change everyone's nickname to a Dutch snack immediately
    npm run test-group-snack # Test the "Group Snack Event" where everyone gets the same snack
    npm run check-timezone   # Check the server's timezone configuration
+   npm run test-owner-dm    # Test sending a nickname suggestion DM to the server owner
    ```
 
 ## Configuration
@@ -107,6 +108,7 @@ Every Monday at 3 AM (server local time), the bot will:
 - Change everyone's nickname to a random Dutch snack (including other bots)
 - 10% chance for a "Group Snack Event" where everyone gets the same snack
 - Skip users with higher roles than the bot (due to Discord permissions)
+- Send a direct message to the server owner with a suggested nickname (since the bot cannot change the owner's nickname)
 
 Some examples of Dutch snacks used:
 - Stroopwafel
@@ -139,6 +141,7 @@ The bot supports both traditional prefix commands (starting with `!`) and Discor
 - `/change-nicknames` - Manually change all nicknames to Dutch snacks (requires admin role)
 - `/test-group-snack` - Test the group snack event where everyone gets the same nickname (requires admin role)
 - `/check-timezone` - Check the current timezone configuration (requires admin role)
+- `/test-owner-dm` - Test sending a nickname suggestion DM to the server owner (requires admin role)
 
 ### Using Slash Commands
 Slash commands provide these benefits:

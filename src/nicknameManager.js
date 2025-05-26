@@ -106,6 +106,8 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
     errors: [],
     groupSnackUsed: false,
     groupSnack: null,
+    ownerSuggestion: false,
+    suggestedSnack: null,
   };
 
   try {
@@ -141,11 +143,49 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
     // For each member, set a Dutch snack as nickname
     for (const [memberId, member] of members.entries()) {
       try {
-        // Skip members with higher roles than the bot (can't change their nicknames)
+        // Check if member has higher roles than the bot (can't change their nicknames)
         if (member.roles.highest.position >= botMember.roles.highest.position) {
-          console.log(
-            `Cannot change nickname for ${member.user.tag} due to role hierarchy.`
-          );
+          // Determine which snack would have been used
+          let suggestedSnack;
+          if (useGroupSnack) {
+            suggestedSnack = groupSnack;
+          } else {
+            suggestedSnack =
+              dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+          }
+
+          // Check if this is the server owner
+          const isOwner = member.id === guild.ownerId;
+
+          if (isOwner) {
+            console.log(
+              `${member.user.tag} is the server owner. Sending DM with nickname suggestion.`
+            );
+
+            // Try to send a DM to the server owner
+            try {
+              await member.send(
+                `Hello server owner! I couldn't change your nickname due to Discord permissions, but to match today's Dutch snack theme, ` +
+                  `you might want to change your nickname to: **${suggestedSnack}**`
+              );
+              console.log(
+                `Successfully sent nickname suggestion DM to ${member.user.tag}`
+              );
+
+              // Track that we sent a suggestion to the owner
+              result.ownerSuggestion = true;
+              result.suggestedSnack = suggestedSnack;
+            } catch (dmError) {
+              console.log(
+                `Could not send DM to ${member.user.tag}: ${dmError.message}`
+              );
+            }
+          } else {
+            console.log(
+              `Cannot change nickname for ${member.user.tag} due to role hierarchy.`
+            );
+          }
+
           result.skipped++;
           continue;
         }
@@ -195,7 +235,76 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
   }
 }
 
+/**
+ * Function to test sending a DM to the server owner with a nickname suggestion
+ * @param {Guild} guild - The Discord guild
+ * @param {boolean} useGroupSnack - Whether to use a group snack or random snack
+ * @returns {Promise<Object>} Object containing the result of the operation
+ */
+async function testOwnerDM(guild, useGroupSnack = false) {
+  console.log(`Testing owner DM in guild "${guild.name}"...`);
+
+  const result = {
+    success: false,
+    ownerFound: false,
+    dmSent: false,
+    suggestedSnack: null,
+    error: null,
+  };
+
+  try {
+    // Get the guild owner
+    const owner = await guild.fetchOwner();
+
+    if (!owner) {
+      result.error = "Could not find server owner";
+      return result;
+    }
+
+    result.ownerFound = true;
+    console.log(`Found server owner: ${owner.user.tag}`);
+
+    // Determine which snack to suggest
+    let suggestedSnack;
+    if (useGroupSnack) {
+      // Use a random snack as the "group snack"
+      suggestedSnack =
+        dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+      console.log(`Using group snack: ${suggestedSnack}`);
+    } else {
+      // Get a random Dutch snack
+      suggestedSnack =
+        dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+      console.log(`Using random snack: ${suggestedSnack}`);
+    }
+
+    result.suggestedSnack = suggestedSnack;
+
+    // Try to send a DM to the server owner
+    try {
+      await owner.send(
+        `Hello server owner! This is a test of the nickname suggestion feature. ` +
+          `If this were a real nickname change, I would suggest changing your nickname to: **${suggestedSnack}**\n\n` +
+          `(This is just a test, you don't need to change your nickname)`
+      );
+      console.log(`Successfully sent test DM to ${owner.user.tag}`);
+      result.dmSent = true;
+      result.success = true;
+    } catch (dmError) {
+      console.log(`Could not send DM to ${owner.user.tag}: ${dmError.message}`);
+      result.error = `Could not send DM: ${dmError.message}`;
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`Error in testOwnerDM for guild ${guild.name}:`, error);
+    result.error = error.message;
+    return result;
+  }
+}
+
 module.exports = {
   changeNicknamesToDutchSnacks,
+  testOwnerDM,
   dutchSnacks,
 };

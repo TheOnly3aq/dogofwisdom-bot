@@ -106,6 +106,13 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 
+  // Test owner DM (admin only)
+  new SlashCommandBuilder()
+    .setName("test-owner-dm")
+    .setDescription("Test sending a nickname suggestion DM to the server owner")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
   // Music commands
   new SlashCommandBuilder()
     .setName("play")
@@ -345,7 +352,10 @@ const {
   createRandomCategory,
   createChannelInCategory,
 } = require("./categoryManager");
-const { changeNicknamesToDutchSnacks } = require("./nicknameManager");
+const {
+  changeNicknamesToDutchSnacks,
+  testOwnerDM,
+} = require("./nicknameManager");
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
@@ -763,17 +773,21 @@ client.on('interactionCreate', async interaction => {
         const result = await changeNicknamesToDutchSnacks(guild);
 
         // Send the result
-        await interaction.editReply(
+        let responseMessage =
           `✅ Nickname test complete!\n` +
-            `Success: ${result.success}\n` +
-            `Failed: ${result.failed}\n` +
-            `Skipped: ${result.skipped}\n` +
-            `${
-              result.groupSnackUsed
-                ? `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
-                : ""
-            }`
-        );
+          `Success: ${result.success}\n` +
+          `Failed: ${result.failed}\n` +
+          `Skipped: ${result.skipped}\n`;
+
+        if (result.groupSnackUsed) {
+          responseMessage += `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉\n`;
+        }
+
+        if (result.ownerSuggestion) {
+          responseMessage += `\n👑 Server owner suggestion: "${result.suggestedSnack}" (sent via DM)`;
+        }
+
+        await interaction.editReply(responseMessage);
       } catch (error) {
         console.error("Error testing nickname changes:", error);
         await interaction.editReply(
@@ -809,17 +823,21 @@ client.on('interactionCreate', async interaction => {
         const result = await changeNicknamesToDutchSnacks(guild);
 
         // Send the result
-        await interaction.editReply(
+        let responseMessage =
           `✅ Nicknames changed successfully!\n` +
-            `Success: ${result.success}\n` +
-            `Failed: ${result.failed}\n` +
-            `Skipped: ${result.skipped}\n` +
-            `${
-              result.groupSnackUsed
-                ? `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
-                : ""
-            }`
-        );
+          `Success: ${result.success}\n` +
+          `Failed: ${result.failed}\n` +
+          `Skipped: ${result.skipped}\n`;
+
+        if (result.groupSnackUsed) {
+          responseMessage += `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉\n`;
+        }
+
+        if (result.ownerSuggestion) {
+          responseMessage += `\n👑 Server owner suggestion: "${result.suggestedSnack}" (sent via DM)`;
+        }
+
+        await interaction.editReply(responseMessage);
       } catch (error) {
         console.error("Error changing nicknames:", error);
         await interaction.editReply(
@@ -856,13 +874,18 @@ client.on('interactionCreate', async interaction => {
         const result = await changeNicknamesToDutchSnacks(guild, true);
 
         // Send the result
-        await interaction.editReply(
+        let responseMessage =
           `✅ Group snack test complete!\n` +
-            `Success: ${result.success}\n` +
-            `Failed: ${result.failed}\n` +
-            `Skipped: ${result.skipped}\n` +
-            `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉`
-        );
+          `Success: ${result.success}\n` +
+          `Failed: ${result.failed}\n` +
+          `Skipped: ${result.skipped}\n` +
+          `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉\n`;
+
+        if (result.ownerSuggestion) {
+          responseMessage += `\n👑 Server owner suggestion: "${result.suggestedSnack}" (sent via DM)`;
+        }
+
+        await interaction.editReply(responseMessage);
       } catch (error) {
         console.error("Error testing group snack event:", error);
         await interaction.editReply(
@@ -909,6 +932,68 @@ client.on('interactionCreate', async interaction => {
       // Send the timezone information
       await interaction.reply(response);
       console.log(`Timezone information checked by ${interaction.user.tag}`);
+    }
+
+    // Admin command: test-owner-dm
+    else if (commandName === "test-owner-dm") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the guild
+        const guild = interaction.guild;
+
+        // Test sending a DM to the server owner
+        console.log(
+          `Testing owner DM in guild "${guild.name}" (initiated by ${interaction.user.tag})`
+        );
+
+        const result = await testOwnerDM(guild);
+
+        // Format the response based on the result
+        let responseMessage = `✅ Owner DM test complete!\n`;
+
+        if (result.success) {
+          responseMessage += `👑 Successfully sent a DM to the server owner!\n`;
+          responseMessage += `Suggested nickname: **${result.suggestedSnack}**\n`;
+        } else {
+          responseMessage += `⚠️ Test completed with issues:\n`;
+
+          if (result.ownerFound) {
+            responseMessage += `✅ Server owner found\n`;
+          } else {
+            responseMessage += `❌ Could not find server owner\n`;
+          }
+
+          if (result.dmSent) {
+            responseMessage += `✅ DM was sent successfully\n`;
+          } else {
+            responseMessage += `❌ Could not send DM to server owner\n`;
+          }
+
+          if (result.error) {
+            responseMessage += `\nError: ${result.error}`;
+          }
+        }
+
+        // Send the result
+        await interaction.editReply(responseMessage);
+      } catch (error) {
+        console.error("Error testing owner DM:", error);
+        await interaction.editReply(
+          `❌ Error testing owner DM: ${error.message}`
+        );
+      }
     }
 
     // Music commands
