@@ -69,12 +69,74 @@ function setRandomStatus() {
   console.log(`Status set to: ${randomStatus.type} ${randomStatus.name}`);
 }
 
-// Import the message generator
+// Import the message generator and category manager
 const { generateWisdomMessage } = require("./messageGenerator");
+const {
+  createRandomCategory,
+  createChannelInCategory,
+} = require("./categoryManager");
+
+// Function to create categories and channels for testing
+async function createTestCategories() {
+  console.log("Creating test categories and channels...");
+
+  try {
+    // Get all guilds the bot is in
+    const guilds = client.guilds.cache;
+    if (guilds.size === 0) {
+      console.error("Bot is not in any guilds!");
+      return {};
+    }
+
+    const testChannels = new Map();
+
+    // For each guild, create a new category and channel
+    for (const guild of guilds.values()) {
+      try {
+        // Create a new category
+        const newCategory = await createRandomCategory(guild);
+        if (!newCategory) {
+          console.log(`Failed to create test category in guild: ${guild.name}`);
+          continue;
+        }
+
+        // Create a new channel in the category
+        const newChannel = await createChannelInCategory(guild, newCategory);
+        if (!newChannel) {
+          console.log(`Failed to create test channel in guild: ${guild.name}`);
+          continue;
+        }
+
+        // Store the category and channel for this guild
+        testChannels.set(guild.id, {
+          category: newCategory,
+          channel: newChannel,
+        });
+
+        console.log(
+          `Created test category "${newCategory.name}" with channel "#${newChannel.name}" in guild: ${guild.name}`
+        );
+      } catch (error) {
+        console.error(
+          `Error creating test category for guild ${guild.name}:`,
+          error
+        );
+      }
+    }
+
+    return testChannels;
+  } catch (error) {
+    console.error("Error in createTestCategories:", error);
+    return {};
+  }
+}
 
 // Function to send the wisdom message with a random user ping
 async function sendWisdomMessage() {
   try {
+    // Create test categories and channels
+    const testChannels = await createTestCategories();
+
     // Get all guilds the bot is in
     const guilds = client.guilds.cache;
     if (guilds.size === 0) {
@@ -82,35 +144,47 @@ async function sendWisdomMessage() {
       return;
     }
 
-    // For each guild, send a message to a random text channel
+    // For each guild, send a message to the test channel
     for (const guild of guilds.values()) {
       try {
-        // Get all text channels the bot has access to
-        const textChannels = guild.channels.cache.filter(
-          (channel) =>
-            channel.type === 0 && // 0 is GUILD_TEXT
-            channel.permissionsFor(guild.members.me).has("SendMessages")
-        );
+        let targetChannel;
 
-        if (textChannels.size === 0) {
+        // Check if we have a test channel for this guild
+        const guildTestChannels = testChannels.get(guild.id);
+        if (guildTestChannels && guildTestChannels.channel) {
+          targetChannel = guildTestChannels.channel;
           console.log(
-            `No accessible text channels found in guild: ${guild.name}`
+            `Using test channel #${targetChannel.name} in category "${guildTestChannels.category.name}"`
           );
-          continue;
+        } else {
+          // Fallback to a random channel if test channel creation failed
+          const textChannels = guild.channels.cache.filter(
+            (channel) =>
+              channel.type === 0 && // 0 is GUILD_TEXT
+              channel.permissionsFor(guild.members.me).has("SendMessages")
+          );
+
+          if (textChannels.size === 0) {
+            console.log(
+              `No accessible text channels found in guild: ${guild.name}`
+            );
+            continue;
+          }
+
+          // Select a random text channel
+          targetChannel = textChannels.random();
+          console.log(
+            `Using random channel #${targetChannel.name} (test channel creation failed)`
+          );
         }
-
-        // Select a random text channel
-        const randomChannel = textChannels.random();
-
-        // Skip member fetching for test messages
 
         // Generate a random wisdom message
         const randomMessage = generateWisdomMessage();
 
         // Send the message without pinging anyone (for testing)
-        await randomChannel.send(`${randomMessage} (Test message - no ping)`);
+        await targetChannel.send(`${randomMessage} (Test message - no ping)`);
         console.log(
-          `Test wisdom message sent to ${guild.name} in #${randomChannel.name}: "${randomMessage}"`
+          `Test wisdom message sent to ${guild.name} in #${targetChannel.name}: "${randomMessage}"`
         );
       } catch (error) {
         console.error(`Error sending message to guild ${guild.name}:`, error);

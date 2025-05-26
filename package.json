@@ -6,7 +6,10 @@
     "start": "node src/index.js",
     "setup": "node src/setup.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "send-now": "node src/send-now.js"
+    "send-now": "node src/send-now.js",
+    "test-nicknames": "node src/test-nicknames.js",
+    "change-nicknames": "node src/change-nicknames.js",
+    "test-group-snack": "node src/test-group-snack.js"
   },
   "keywords": [],
   "author": "",

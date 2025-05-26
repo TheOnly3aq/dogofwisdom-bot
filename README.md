@@ -6,9 +6,11 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
 
 - 🐶 Sends random Dog of Wisdom style messages (e.g., "ha ba da ga da", "woof", etc.)
 - 🎯 Pings a random user with each message
-- 📊 Selects a random text channel to post in
+- 📊 Creates a new category and channel 5 minutes before sending the message
 - 🕒 Scheduled daily messages (configurable)
 - 🎮 Random bot status that changes hourly
+- 🔄 Anti-mute system that creates new categories each time
+- 🍪 Changes everyone's nickname to a random Dutch snack every Monday at 3 AM
 
 ## Setup
 
@@ -29,6 +31,9 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
      - Send Messages
      - Read Message History
      - Mention Everyone
+     - Manage Channels (required for creating new categories)
+     - Manage Roles (required for setting permissions on new channels)
+     - Manage Nicknames (required for changing member nicknames)
    - Copy the generated URL and open it in your browser to invite the bot to your server
 
 3. **Configure the Bot**
@@ -45,9 +50,12 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
    npm start
    ```
    
-   Or test it without pinging users:
+   Or run one of the test commands:
    ```bash
-   npm run send-now
+   npm run send-now         # Test sending a message without pinging users
+   npm run test-nicknames   # Test if the bot can change nicknames (without actually changing them)
+   npm run change-nicknames # Change everyone's nickname to a Dutch snack immediately
+   npm run test-group-snack # Test the "Group Snack Event" where everyone gets the same snack
    ```
 
 ## Configuration
@@ -83,6 +91,29 @@ The bot displays a random status that changes every hour. Statuses include:
 - Playing with ancient knowledge
 - And more!
 
+### Anti-Mute System
+
+To prevent users from muting the bot's messages:
+- The bot creates a new category 5 minutes before sending the daily message
+- It then creates a new channel within that category
+- The message is sent to this new channel, making it harder for users to mute
+- Each day, a completely different category and channel are used
+
+### Dutch Snack Nicknames
+
+Every Monday at 3 AM, the bot will:
+- Change everyone's nickname to a random Dutch snack (including other bots)
+- 10% chance for a "Group Snack Event" where everyone gets the same snack
+- Skip users with higher roles than the bot (due to Discord permissions)
+
+Some examples of Dutch snacks used:
+- Stroopwafel
+- Bitterballen
+- Kroket
+- Poffertjes
+- Hagelslag
+- And many more!
+
 ## Cron Schedule Format
 
 The cron schedule follows the format: `minute hour day-of-month month day-of-week`
@@ -100,6 +131,28 @@ For production use, consider using a process manager like PM2:
 npm install -g pm2
 pm2 start src/index.js --name wisdom-bot
 pm2 save
+```
+
+## Troubleshooting
+
+### Permission Issues
+
+If the bot can't create categories or channels, check the following:
+
+1. **Bot Permissions**: Make sure the bot has the "Manage Channels" and "Manage Roles" permissions in your server.
+
+2. **Role Hierarchy**: The bot's role must be higher in the role list than the roles you want it to manage permissions for. Go to Server Settings > Roles and drag the bot's role higher in the list.
+
+3. **Server Verification Level**: If your server has a high verification level, it might restrict certain actions. Consider lowering it temporarily when setting up the bot.
+
+4. **Channel Limit**: Discord has a limit of 500 channels per server. If you're close to this limit, the bot might not be able to create new channels.
+
+### Fallback Behavior
+
+If the bot can't create a new category and channel, it will fall back to using a random existing text channel. You'll see a message in the console like:
+```
+Bot doesn't have 'Manage Channels' permission in guild "Your Server". Cannot create category.
+Using random channel #general (no prepared channel found)
 ```
 
 ## License
