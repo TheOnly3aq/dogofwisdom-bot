@@ -1,13 +1,14 @@
-# Wisdom Bot
+# Dog of Wisdom Bot
 
-A Discord bot that sends a daily message and pings a random user in your server.
+A fun Discord bot that sends random "Dog of Wisdom" style messages to a random channel in your server, pinging a random user.
 
 ## Features
 
-- Sends a customizable message once a day
-- Pings a random user in the server
-- Configurable message content, channel, and schedule
-- Easy to set up and deploy
+- 🐶 Sends random Dog of Wisdom style messages (e.g., "ha ba da ga da", "woof", etc.)
+- 🎯 Pings a random user with each message
+- 📊 Selects a random text channel to post in
+- 🕒 Scheduled daily messages (configurable)
+- 🎮 Random bot status that changes hourly
 
 ## Setup
 
@@ -31,8 +32,8 @@ A Discord bot that sends a daily message and pings a random user in your server.
    - Copy the generated URL and open it in your browser to invite the bot to your server
 
 3. **Configure the Bot**
-   - Copy the `.env.example` file to `.env` or create a `config.json` file based on `config.example.json`
-   - Fill in your bot token, channel ID, and customize the message
+   - Create a `.env` file in the root directory
+   - Fill in your bot token and schedule settings (see Configuration section)
 
 4. **Install Dependencies**
    ```bash
@@ -41,46 +42,46 @@ A Discord bot that sends a daily message and pings a random user in your server.
 
 5. **Start the Bot**
    ```bash
-   node src/index.js
+   npm start
+   ```
+   
+   Or test it without pinging users:
+   ```bash
+   npm run send-now
    ```
 
 ## Configuration
 
-You can configure the bot using either a `config.json` file or environment variables.
+Configure the bot by creating a `.env` file in the root directory.
 
-### Using config.json
-
-Create a `config.json` file in the root directory with the following structure:
-
-```json
-{
-  "token": "YOUR_DISCORD_BOT_TOKEN",
-  "channelId": "YOUR_DISCORD_CHANNEL_ID",
-  "message": "Hello everyone! Here's your daily wisdom message!",
-  "cronSchedule": "0 12 * * *",
-  "timezone": "UTC"
-}
-```
-
-### Using Environment Variables
-
-Alternatively, you can use environment variables by creating a `.env` file:
+### Environment Variables
 
 ```
 BOT_TOKEN=YOUR_DISCORD_BOT_TOKEN
-CHANNEL_ID=YOUR_DISCORD_CHANNEL_ID
-DAILY_MESSAGE=Hello everyone! Here's your daily wisdom message!
-CRON_SCHEDULE=0 12 * * *
+CRON_SCHEDULE=0 9 * * *
 TIMEZONE=UTC
 ```
 
 ### Configuration Options
 
-- `token`: Your Discord bot token
-- `channelId`: The ID of the channel where messages will be sent
-- `message`: The message content to be sent daily
-- `cronSchedule`: When to send the message (in cron format)
-- `timezone`: The timezone for the cron schedule
+- `BOT_TOKEN`: Your Discord bot token
+- `CRON_SCHEDULE`: When to send the message (in cron format)
+- `TIMEZONE`: The timezone for the cron schedule
+
+### Message Generation
+
+The bot generates random Dog of Wisdom style messages using three methods:
+1. Common patterns from the Dog of Wisdom (30% chance)
+2. Repeated syllables like "ba ba ba" (20% chance)
+3. Random combinations of syllables (50% chance)
+
+### Bot Status
+
+The bot displays a random status that changes every hour. Statuses include:
+- Watching for wisdom seekers
+- Listening to ba ha da ga da
+- Playing with ancient knowledge
+- And more!
 
 ## Cron Schedule Format
 

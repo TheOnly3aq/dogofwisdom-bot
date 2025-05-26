@@ -11,7 +11,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "A Discord bot that sends a daily message and pings a random user in your server.",
+  "description": "A fun Discord bot that sends random Dog of Wisdom style messages to a random channel in your server, pinging a random user.",
   "dependencies": {
     "discord.js": "^14.19.3",
     "dotenv": "^16.5.0",
