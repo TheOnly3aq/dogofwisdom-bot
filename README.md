@@ -11,6 +11,7 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
 - 🎮 Random bot status that changes hourly
 - 🔄 Anti-mute system that creates new categories each time
 - 🍪 Changes everyone's nickname to a random Dutch snack every Monday at 3 AM
+- 🎲 Game selection dice roll command to help decide what to play
 
 ## Setup
 
@@ -114,6 +115,21 @@ Some examples of Dutch snacks used:
 - Poffertjes
 - Hagelslag
 - And many more!
+
+## Bot Commands
+
+The bot responds to the following commands:
+
+### Music Commands
+- `!play [YouTube URL]` - Play a YouTube video in your voice channel (alias: `!p`)
+- `!skip` - Skip the current song (alias: `!s`)
+- `!queue` - Show the current music queue (alias: `!q`)
+- `!join` - Make the bot join your voice channel
+- `!leave` - Make the bot leave the voice channel (alias: `!dc`)
+- `!help` - Show the help message with all available commands
+
+### Game Commands
+- `!roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal)
 
 ## Cron Schedule Format
 

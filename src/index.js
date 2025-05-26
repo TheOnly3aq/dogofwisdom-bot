@@ -418,6 +418,15 @@ client.on("messageCreate", async (message) => {
       message.channel.send(
         result.success ? result.message : `❌ ${result.message}`
       );
+    } else if (command === "roll") {
+      // List of games to roll from
+      const games = ["Minecraft", "Repo", "Lethal Company"];
+      
+      // Randomly select a game
+      const randomGame = games[Math.floor(Math.random() * games.length)];
+      
+      // Send the result with a dice emoji
+      message.channel.send(`🎲 The dice has been rolled! You should play: **${randomGame}**`);
     } else if (command === "help") {
       // Display help message for music commands
       const helpMessage = `
@@ -428,6 +437,9 @@ client.on("messageCreate", async (message) => {
 \`${prefix}join\` - Join your voice channel
 \`${prefix}leave\` - Leave the voice channel
 \`${prefix}help\` - Show this help message
+
+**Game Commands:**
+\`${prefix}roll\` - Roll a dice to decide what game to play
 
 **Aliases:**
 \`${prefix}p\` - Alias for play
