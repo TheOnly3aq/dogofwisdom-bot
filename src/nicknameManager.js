@@ -162,14 +162,43 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
               `${member.user.tag} is the server owner. Sending DM with nickname suggestion.`
             );
 
-            // Try to send a DM to the server owner
+            // Try to send a DM to the server owner with a button
             try {
-              await member.send(
-                `Hello server owner! I couldn't change your nickname due to Discord permissions, but to match today's Dutch snack theme, ` +
-                  `you might want to change your nickname to: **${suggestedSnack}**`
+              // Import the necessary Discord.js components
+              const {
+                ActionRowBuilder,
+                ButtonBuilder,
+                ButtonStyle,
+              } = require("discord.js");
+
+              // Create a button for changing nickname
+              const changeNicknameButton = new ButtonBuilder()
+                .setCustomId(
+                  `change_nickname_${guild.id}_${suggestedSnack.replace(
+                    /\s+/g,
+                    "_"
+                  )}`
+                )
+                .setLabel(`Change my nickname to ${suggestedSnack}`)
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji("👑");
+
+              // Create an action row with the button
+              const row = new ActionRowBuilder().addComponents(
+                changeNicknameButton
               );
+
+              // Send the message with the button
+              await member.send({
+                content:
+                  `Hello server owner! I couldn't change your nickname due to Discord permissions, but to match today's Dutch snack theme, ` +
+                  `you might want to change your nickname to: **${suggestedSnack}**\n\n` +
+                  `You can click the button below to get instructions on how to change your nickname, or do it manually.`,
+                components: [row],
+              });
+
               console.log(
-                `Successfully sent nickname suggestion DM to ${member.user.tag}`
+                `Successfully sent nickname suggestion DM with button to ${member.user.tag}`
               );
 
               // Track that we sent a suggestion to the owner
@@ -280,14 +309,37 @@ async function testOwnerDM(guild, useGroupSnack = false) {
 
     result.suggestedSnack = suggestedSnack;
 
-    // Try to send a DM to the server owner
+    // Try to send a DM to the server owner with a button
     try {
-      await owner.send(
-        `Hello server owner! This is a test of the nickname suggestion feature. ` +
+      // Import the necessary Discord.js components
+      const {
+        ActionRowBuilder,
+        ButtonBuilder,
+        ButtonStyle,
+      } = require("discord.js");
+
+      // Create a button for changing nickname
+      const changeNicknameButton = new ButtonBuilder()
+        .setCustomId(
+          `change_nickname_${guild.id}_${suggestedSnack.replace(/\s+/g, "_")}`
+        )
+        .setLabel(`Change my nickname to ${suggestedSnack}`)
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji("👑");
+
+      // Create an action row with the button
+      const row = new ActionRowBuilder().addComponents(changeNicknameButton);
+
+      // Send the message with the button
+      await owner.send({
+        content:
+          `Hello server owner! This is a test of the nickname suggestion feature.\n` +
           `If this were a real nickname change, I would suggest changing your nickname to: **${suggestedSnack}**\n\n` +
-          `(This is just a test, you don't need to change your nickname)`
-      );
-      console.log(`Successfully sent test DM to ${owner.user.tag}`);
+          `You can click the button below to get instructions on how to change your nickname, or do it manually.`,
+        components: [row],
+      });
+
+      console.log(`Successfully sent test DM with button to ${owner.user.tag}`);
       result.dmSent = true;
       result.success = true;
     } catch (dmError) {

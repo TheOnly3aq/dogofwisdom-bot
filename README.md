@@ -108,7 +108,7 @@ Every Monday at 3 AM (server local time), the bot will:
 - Change everyone's nickname to a random Dutch snack (including other bots)
 - 10% chance for a "Group Snack Event" where everyone gets the same snack
 - Skip users with higher roles than the bot (due to Discord permissions)
-- Send a direct message to the server owner with a suggested nickname (since the bot cannot change the owner's nickname)
+- Send a direct message to the server owner with a suggested nickname and an interactive button that provides instructions on how to change their nickname (since the bot cannot change the owner's nickname)
 
 Some examples of Dutch snacks used:
 - Stroopwafel

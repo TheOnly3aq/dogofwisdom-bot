@@ -650,48 +650,96 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Handle slash command interactions
+// Handle slash command and button interactions
 client.on('interactionCreate', async interaction => {
+  // Handle button interactions
+  if (interaction.isButton()) {
+    try {
+      // Check if this is a nickname change button
+      if (interaction.customId.startsWith("change_nickname_")) {
+        // Extract the guild ID and nickname from the custom ID
+        const parts = interaction.customId.split("_");
+        const guildId = parts[2];
+        const nickname = parts.slice(3).join("_").replace(/_/g, " ");
+
+        // Send instructions on how to change nickname
+        await interaction.reply({
+          content:
+            `**How to change your nickname in Discord:**\n\n` +
+            `1. Right-click on the server name in the server list\n` +
+            `2. Select "Change Nickname"\n` +
+            `3. Enter: \`${nickname}\`\n` +
+            `4. Click "Save"\n\n` +
+            `Or on mobile:\n` +
+            `1. Swipe right to open the server list\n` +
+            `2. Tap on the server\n` +
+            `3. Tap on the three dots in the top-right\n` +
+            `4. Tap "Change Nickname"\n` +
+            `5. Enter: \`${nickname}\`\n` +
+            `6. Tap "Save"`,
+          ephemeral: true,
+        });
+
+        console.log(
+          `Sent nickname change instructions to ${interaction.user.tag} for nickname: ${nickname}`
+        );
+      }
+    } catch (error) {
+      console.error("Error handling button interaction:", error);
+      try {
+        await interaction.reply({
+          content: "❌ An error occurred while processing this button.",
+          ephemeral: true,
+        });
+      } catch (replyError) {
+        console.error("Error sending error reply:", replyError);
+      }
+    }
+    return;
+  }
+
+  // Handle slash commands
   if (!interaction.isCommand()) return;
 
   const { commandName } = interaction;
 
   try {
     // Game commands
-    if (commandName === 'roll') {
+    if (commandName === "roll") {
       // List of games to roll from
       const games = ["Minecraft", "Repo", "Lethal Company"];
-      
+
       // Randomly select a game
       const randomGame = games[Math.floor(Math.random() * games.length)];
-      
+
       // Send the result with a dice emoji
-      await interaction.reply(`🎲 The dice has been rolled! You should play: **${randomGame}**`);
-    } 
-    
+      await interaction.reply(
+        `🎲 The dice has been rolled! You should play: **${randomGame}**`
+      );
+    }
+
     // Admin commands
-    else if (commandName === 'toggledaily') {
+    else if (commandName === "toggledaily") {
       // Check if the user has the required admin role
       const member = interaction.member;
       if (!member.roles.cache.has(config.adminRoleId)) {
         return interaction.reply({
-          content: "❌ You don't have permission to use this command. You need the admin role.",
-          ephemeral: true // Only visible to the command user
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true, // Only visible to the command user
         });
       }
-      
+
       // Toggle the daily messages state
       config.dailyMessagesEnabled = !config.dailyMessagesEnabled;
-      
+
       // Send confirmation message
       const status = config.dailyMessagesEnabled ? "enabled" : "disabled";
       await interaction.reply(`✅ Daily messages have been **${status}**!`);
-      
+
       // Log the change
       console.log(`Daily messages ${status} by ${interaction.user.tag}`);
-    } 
-    
-    else if (commandName === "togglenicknames") {
+    } else if (commandName === "togglenicknames") {
       // Check if the user has the required admin role
       const member = interaction.member;
       if (!member.roles.cache.has(config.adminRoleId)) {
@@ -1058,13 +1106,13 @@ client.on('interactionCreate', async interaction => {
       );
     }
   } catch (error) {
-    console.error('Error handling slash command:', error);
-    
+    console.error("Error handling slash command:", error);
+
     // If the interaction hasn't been replied to yet, send an error message
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ 
-        content: `❌ An error occurred: ${error.message}`, 
-        ephemeral: true 
+      await interaction.reply({
+        content: `❌ An error occurred: ${error.message}`,
+        ephemeral: true,
       });
     } else if (interaction.deferred) {
       await interaction.editReply(`❌ An error occurred: ${error.message}`);
