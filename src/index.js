@@ -30,6 +30,7 @@ const config = {
   timezone: getLocalTimezone(), // Use local server timezone
   dailyMessagesEnabled: true, // Default: daily messages are enabled
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
+  ownerDMsEnabled: true, // Default: DMs to server owner are enabled
   adminRoleId: "1376665402758926487", // Role ID that can control bot features
 };
 
@@ -64,6 +65,13 @@ const commands = [
   new SlashCommandBuilder()
     .setName("togglenicknames")
     .setDescription("Toggle weekly nickname changes on/off")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
+    .toJSON(),
+
+  // Toggle owner DMs command (admin only)
+  new SlashCommandBuilder()
+    .setName("toggleownerdms")
+    .setDescription("Toggle DM notifications to server owners on/off")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
     .toJSON(),
 
@@ -285,7 +293,11 @@ client.once("ready", async () => {
             console.log(`Changing nicknames for guild: ${guild.name}`);
 
             // Change nicknames to Dutch snacks
-            const result = await changeNicknamesToDutchSnacks(guild);
+            const result = await changeNicknamesToDutchSnacks(
+              guild,
+              false,
+              config
+            );
 
             console.log(
               `Results for ${guild.name}: Success: ${result.success}, Failed: ${result.failed}, Skipped: ${result.skipped}`
@@ -618,6 +630,28 @@ client.on("messageCreate", async (message) => {
 
       // Log the change
       console.log(`Weekly nickname changes ${status} by ${message.author.tag}`);
+    } else if (command === "toggleownerdms") {
+      // Check if the user has the required admin role
+      const member = message.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return message.reply(
+          "❌ You don't have permission to use this command. You need the admin role."
+        );
+      }
+
+      // Toggle the owner DMs state
+      config.ownerDMsEnabled = !config.ownerDMsEnabled;
+
+      // Send confirmation message
+      const status = config.ownerDMsEnabled ? "enabled" : "disabled";
+      message.channel.send(
+        `✅ Server owner DM notifications have been **${status}**!`
+      );
+
+      // Log the change
+      console.log(
+        `Server owner DM notifications ${status} by ${message.author.tag}`
+      );
     } else if (command === "help") {
       // Display help message for music commands
       const helpMessage = `
@@ -635,6 +669,7 @@ client.on("messageCreate", async (message) => {
 **Admin Commands:**
 \`${prefix}toggledaily\` - Toggle daily messages on/off (requires admin role)
 \`${prefix}togglenicknames\` - Toggle weekly nickname changes on/off (requires admin role)
+\`${prefix}toggleownerdms\` - Toggle server owner DM notifications on/off (requires admin role)
 
 **Aliases:**
 \`${prefix}p\` - Alias for play
@@ -651,7 +686,7 @@ client.on("messageCreate", async (message) => {
 });
 
 // Handle slash command and button interactions
-client.on('interactionCreate', async interaction => {
+client.on("interactionCreate", async (interaction) => {
   // Handle button interactions
   if (interaction.isButton()) {
     try {
@@ -763,6 +798,30 @@ client.on('interactionCreate', async interaction => {
       console.log(
         `Weekly nickname changes ${status} by ${interaction.user.tag}`
       );
+    } else if (commandName === "toggleownerdms") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true, // Only visible to the command user
+        });
+      }
+
+      // Toggle the owner DMs state
+      config.ownerDMsEnabled = !config.ownerDMsEnabled;
+
+      // Send confirmation message
+      const status = config.ownerDMsEnabled ? "enabled" : "disabled";
+      await interaction.reply(
+        `✅ Server owner DM notifications have been **${status}**!`
+      );
+
+      // Log the change
+      console.log(
+        `Server owner DM notifications ${status} by ${interaction.user.tag}`
+      );
     }
 
     // Admin command: send-now
@@ -818,7 +877,7 @@ client.on('interactionCreate', async interaction => {
         );
 
         // Change nicknames to Dutch snacks
-        const result = await changeNicknamesToDutchSnacks(guild);
+        const result = await changeNicknamesToDutchSnacks(guild, false, config);
 
         // Send the result
         let responseMessage =
@@ -919,7 +978,7 @@ client.on('interactionCreate', async interaction => {
         );
 
         // Change nicknames to Dutch snacks with forced group snack
-        const result = await changeNicknamesToDutchSnacks(guild, true);
+        const result = await changeNicknamesToDutchSnacks(guild, true, config);
 
         // Send the result
         let responseMessage =
@@ -975,6 +1034,9 @@ client.on('interactionCreate', async interaction => {
         `Weekly nickname schedule: \`${weeklySchedule}\` (${
           config.nicknameChangesEnabled ? "Enabled" : "Disabled"
         })`,
+        `Server owner DM notifications: (${
+          config.ownerDMsEnabled ? "Enabled" : "Disabled"
+        })`,
       ].join("\n");
 
       // Send the timezone information
@@ -1006,7 +1068,7 @@ client.on('interactionCreate', async interaction => {
           `Testing owner DM in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        const result = await testOwnerDM(guild);
+        const result = await testOwnerDM(guild, false, config);
 
         // Format the response based on the result
         let responseMessage = `✅ Owner DM test complete!\n`;

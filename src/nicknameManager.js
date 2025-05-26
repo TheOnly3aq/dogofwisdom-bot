@@ -94,9 +94,14 @@ const dutchSnacks = [
  * Changes all members' nicknames in a guild to random Dutch snacks
  * @param {Guild} guild - The Discord guild to change nicknames in
  * @param {boolean} forceGroupSnack - Force everyone to have the same snack (for testing)
+ * @param {Object} config - Configuration object with settings
  * @returns {Promise<Object>} Object containing success and failure counts
  */
-async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
+async function changeNicknamesToDutchSnacks(
+  guild,
+  forceGroupSnack = false,
+  config = { ownerDMsEnabled: true }
+) {
   console.log(`Changing nicknames in guild "${guild.name}" to Dutch snacks...`);
 
   const result = {
@@ -158,6 +163,15 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
           const isOwner = member.id === guild.ownerId;
 
           if (isOwner) {
+            // Check if owner DMs are enabled
+            if (!config.ownerDMsEnabled) {
+              console.log(
+                `${member.user.tag} is the server owner, but owner DMs are disabled. Skipping DM.`
+              );
+              result.skipped++;
+              continue;
+            }
+
             console.log(
               `${member.user.tag} is the server owner. Sending DM with nickname suggestion.`
             );
@@ -268,9 +282,14 @@ async function changeNicknamesToDutchSnacks(guild, forceGroupSnack = false) {
  * Function to test sending a DM to the server owner with a nickname suggestion
  * @param {Guild} guild - The Discord guild
  * @param {boolean} useGroupSnack - Whether to use a group snack or random snack
+ * @param {Object} config - Configuration object with settings
  * @returns {Promise<Object>} Object containing the result of the operation
  */
-async function testOwnerDM(guild, useGroupSnack = false) {
+async function testOwnerDM(
+  guild,
+  useGroupSnack = false,
+  config = { ownerDMsEnabled: true }
+) {
   console.log(`Testing owner DM in guild "${guild.name}"...`);
 
   const result = {
@@ -292,6 +311,13 @@ async function testOwnerDM(guild, useGroupSnack = false) {
 
     result.ownerFound = true;
     console.log(`Found server owner: ${owner.user.tag}`);
+
+    // Check if owner DMs are enabled
+    if (!config.ownerDMsEnabled) {
+      console.log(`Owner DMs are disabled. Skipping DM test.`);
+      result.error = "Owner DMs are disabled in configuration";
+      return result;
+    }
 
     // Determine which snack to suggest
     let suggestedSnack;
