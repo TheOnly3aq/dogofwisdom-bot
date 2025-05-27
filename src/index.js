@@ -38,12 +38,60 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates, // Required for voice functionality
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
 });
 
 // Define slash commands
 const commands = [
+  // Music commands
+  new SlashCommandBuilder()
+    .setName("play")
+    .setDescription("Play a song from YouTube")
+    .addStringOption((option) =>
+      option
+        .setName("query")
+        .setDescription("The song URL or search query")
+        .setRequired(true)
+    )
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("skip")
+    .setDescription("Skip the current song")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("stop")
+    .setDescription("Stop the music and clear the queue")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("queue")
+    .setDescription("Show the current music queue")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("join")
+    .setDescription("Join your voice channel")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("leave")
+    .setDescription("Leave the voice channel")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("pause")
+    .setDescription("Pause the current song")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("resume")
+    .setDescription("Resume the paused song")
+    .toJSON(),
+
   // Roll command
   new SlashCommandBuilder()
     .setName("roll")
@@ -475,6 +523,7 @@ const {
   logError,
   testDiscordLogging,
 } = require("./logManager");
+const discordPlayer = require("./discordPlayer");
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
@@ -950,8 +999,28 @@ client.on("interactionCreate", async (interaction) => {
   }
 
   try {
+    // Music commands
+    if (commandName === "play") {
+      const query = interaction.options.getString("query");
+      await discordPlayer.playSong(interaction, query);
+    } else if (commandName === "skip") {
+      await discordPlayer.skipSong(interaction);
+    } else if (commandName === "stop") {
+      await discordPlayer.stopMusic(interaction);
+    } else if (commandName === "queue") {
+      await discordPlayer.showQueue(interaction);
+    } else if (commandName === "join") {
+      await discordPlayer.joinVoiceChannel(interaction);
+    } else if (commandName === "leave") {
+      await discordPlayer.leaveVoiceChannel(interaction);
+    } else if (commandName === "pause") {
+      await discordPlayer.pauseSong(interaction);
+    } else if (commandName === "resume") {
+      await discordPlayer.resumeSong(interaction);
+    }
+
     // Game commands
-    if (commandName === "roll") {
+    else if (commandName === "roll") {
       // List of games to roll from
       const games = ["Minecraft", "Repo", "Lethal Company"];
 
