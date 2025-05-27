@@ -10,6 +10,7 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
+// Import both music player implementations
 const {
   joinChannel,
   leaveChannel,
@@ -19,6 +20,9 @@ const {
   resumePlayback,
   getQueue,
 } = require("./musicPlayer");
+
+// Import the new discord-player handler
+const discordPlayer = require("./discordPlayerHandler");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -273,6 +277,15 @@ client.once("ready", async () => {
   // Initialize logging system first, before any logging calls
   console.log("Initializing logging system...");
   initializeLogger(client, config);
+
+  // Initialize discord-player
+  try {
+    console.log("Initializing Discord Player...");
+    global.player = await discordPlayer.initializePlayer(client);
+    console.log("Discord Player initialized successfully!");
+  } catch (error) {
+    console.error("Failed to initialize Discord Player:", error);
+  }
 
   // Wait a moment to ensure logger is fully initialized
   await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -675,8 +688,21 @@ client.on("messageCreate", async (message) => {
       // Send a loading message
       const loadingMsg = await message.channel.send("🔄 Loading...");
 
-      // Play the YouTube video
-      const result = await playYouTube(message, url);
+      // Try to play the YouTube video with the new discord-player first
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.playSong(message, global.player, url);
+        } else {
+          // Fall back to the old player if discord-player isn't initialized
+          result = await playYouTube(message, url);
+        }
+      } catch (error) {
+        console.error("Error playing song with discord-player:", error);
+        // Fall back to the old player if discord-player fails
+        result = await playYouTube(message, url);
+      }
 
       // Update the loading message with the result
       if (result.success) {
@@ -686,13 +712,40 @@ client.on("messageCreate", async (message) => {
       }
     } else if (command === "skip" || command === "s") {
       // Skip the current song
-      const result = skipSong(message.guild.id);
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.skipSong(message);
+        } else {
+          // Fall back to the old player
+          result = skipSong(message.guild.id);
+        }
+      } catch (error) {
+        console.error("Error skipping song with discord-player:", error);
+        // Fall back to the old player
+        result = skipSong(message.guild.id);
+      }
+
       message.channel.send(
         result.success ? result.message : `❌ ${result.message}`
       );
     } else if (command === "queue" || command === "q") {
       // Get the queue
-      const result = getQueue(message.guild.id);
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.getQueue(message);
+        } else {
+          // Fall back to the old player
+          result = getQueue(message.guild.id);
+        }
+      } catch (error) {
+        console.error("Error getting queue with discord-player:", error);
+        // Fall back to the old player
+        result = getQueue(message.guild.id);
+      }
 
       if (!result.success) {
         return message.channel.send(`❌ ${result.message}`);
@@ -763,32 +816,32 @@ client.on("messageCreate", async (message) => {
         fields: [
           {
             name: "🎵 Music Commands",
-            value: 
+            value:
               "`!play [url]` - Play a YouTube video\n" +
               "`!skip` - Skip the current song\n" +
               "`!queue` - Show the current music queue\n" +
               "`!join` - Join your voice channel\n" +
               "`!leave` - Leave the voice channel\n" +
               "`!pause` - Pause the current song\n" +
-              "`!resume` - Resume the paused song"
+              "`!resume` - Resume the paused song",
           },
           {
             name: "🎲 Game Commands",
-            value: "`!roll` - Roll a dice to decide what game to play"
+            value: "`!roll` - Roll a dice to decide what game to play",
           },
           {
             name: "⚙️ Admin Commands",
-            value: 
+            value:
               "`!toggledaily` - Toggle daily messages on/off\n" +
               "`!togglenicknames` - Toggle weekly nickname changes on/off\n" +
-              "Use `/` commands for more admin features"
-          }
+              "Use `/` commands for more admin features",
+          },
         ],
         footer: {
-          text: "All commands are also available as slash (/) commands"
-        }
+          text: "All commands are also available as slash (/) commands",
+        },
       };
-      
+
       message.channel.send({ embeds: [helpEmbed] });
     } else if (command === "toggledaily") {
       // Check if the user has the required admin role
@@ -1422,8 +1475,25 @@ client.on("interactionCreate", async (interaction) => {
       // Defer the reply to give time for processing
       await interaction.deferReply();
 
-      // Play the YouTube video
-      const result = await playYouTube(interaction, url);
+      // Try to play the YouTube video with the new discord-player first
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.playSong(
+            interaction,
+            global.player,
+            url
+          );
+        } else {
+          // Fall back to the old player if discord-player isn't initialized
+          result = await playYouTube(interaction, url);
+        }
+      } catch (error) {
+        console.error("Error playing song with discord-player:", error);
+        // Fall back to the old player if discord-player fails
+        result = await playYouTube(interaction, url);
+      }
 
       // Send the result
       if (result.success) {
@@ -1433,13 +1503,40 @@ client.on("interactionCreate", async (interaction) => {
       }
     } else if (commandName === "skip") {
       // Skip the current song
-      const result = skipSong(interaction.guild.id);
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.skipSong(interaction);
+        } else {
+          // Fall back to the old player
+          result = skipSong(interaction.guild.id);
+        }
+      } catch (error) {
+        console.error("Error skipping song with discord-player:", error);
+        // Fall back to the old player
+        result = skipSong(interaction.guild.id);
+      }
+
       await interaction.reply(
         result.success ? result.message : `❌ ${result.message}`
       );
     } else if (commandName === "queue") {
       // Get the queue
-      const result = getQueue(interaction.guild.id);
+      let result;
+      try {
+        if (global.player) {
+          // Use the new discord-player handler
+          result = await discordPlayer.getQueue(interaction);
+        } else {
+          // Fall back to the old player
+          result = getQueue(interaction.guild.id);
+        }
+      } catch (error) {
+        console.error("Error getting queue with discord-player:", error);
+        // Fall back to the old player
+        result = getQueue(interaction.guild.id);
+      }
 
       if (!result.success) {
         return interaction.reply(`❌ ${result.message}`);
@@ -1495,22 +1592,22 @@ client.on("interactionCreate", async (interaction) => {
         fields: [
           {
             name: "🎵 Music Commands",
-            value: 
+            value:
               "`/play [url]` - Play a YouTube video\n" +
               "`/skip` - Skip the current song\n" +
               "`/queue` - Show the current music queue\n" +
               "`/join` - Join your voice channel\n" +
               "`/leave` - Leave the voice channel\n" +
               "`/pause` - Pause the current song\n" +
-              "`/resume` - Resume the paused song"
+              "`/resume` - Resume the paused song",
           },
           {
             name: "🎲 Game Commands",
-            value: "`/roll` - Roll a dice to decide what game to play"
+            value: "`/roll` - Roll a dice to decide what game to play",
           },
           {
             name: "⚙️ Admin Commands",
-            value: 
+            value:
               "`/toggledaily` - Toggle daily messages on/off\n" +
               "`/togglenicknames` - Toggle weekly nickname changes on/off\n" +
               "`/toggleownerdms` - Toggle DM notifications to server owners\n" +
@@ -1520,14 +1617,14 @@ client.on("interactionCreate", async (interaction) => {
               "`/test-group-snack` - Test the group snack event\n" +
               "`/check-timezone` - Check the timezone configuration\n" +
               "`/test-owner-dm` - Test sending a nickname suggestion DM\n" +
-              "`/send-dm` - Send a direct message to a specific user"
-          }
+              "`/send-dm` - Send a direct message to a specific user",
+          },
         ],
         footer: {
-          text: "All commands are also available with the ! prefix (e.g., !play)"
-        }
+          text: "All commands are also available with the ! prefix (e.g., !play)",
+        },
       };
-      
+
       await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
     }
   } catch (error) {
