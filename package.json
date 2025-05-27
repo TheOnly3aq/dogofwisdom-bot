@@ -25,6 +25,8 @@
     "moment-timezone": "^0.6.0",
     "node-cron": "^4.0.7",
     "play-dl": "^1.9.7",
-    "ytdl-core": "^4.11.4"
+    "ytdl-core": "^4.11.5",
+    "libsodium-wrappers": "^0.7.13",
+    "sodium": "^3.0.2"
   }
 }
