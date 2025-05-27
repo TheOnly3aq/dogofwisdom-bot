@@ -14,12 +14,26 @@ async function initializePlayer(client) {
   // Add event listeners
   setupPlayerEvents(player);
 
-  // For discord-player v6.6.7, we don't need to register extractors
+  // For discord-player v7.1.0, we need to register extractors
   try {
-    // This version of discord-player has built-in YouTube support
-    console.log("Player initialized with built-in YouTube support");
+    // Use the DefaultExtractors from the package
+    const { DefaultExtractors } = require("@discord-player/extractor");
+
+    // Register all default extractors
+    await player.extractors.loadMulti(DefaultExtractors);
+
+    console.log("Player initialized with default extractors");
   } catch (error) {
-    console.log("Error initializing player:", error.message);
+    console.log("Error initializing extractors:", error.message);
+
+    // Try a fallback approach
+    try {
+      // Try to load default extractors directly
+      await player.extractors.loadDefault();
+      console.log("Fallback: Loaded default extractors");
+    } catch (fallbackError) {
+      console.log("Fallback extractor loading failed:", fallbackError.message);
+    }
   }
 
   return player;
@@ -31,49 +45,54 @@ async function initializePlayer(client) {
  */
 function setupPlayerEvents(player) {
   // Track start event
-  player.on("trackStart", (queue, track) => {
+  player.events.on("playerStart", (queue, track) => {
     queue.metadata.send(
       `🎵 Now playing: **${track.title}** by **${track.author}**`
     );
   });
 
   // Track add event
-  player.on("trackAdd", (queue, track) => {
+  player.events.on("audioTrackAdd", (queue, track) => {
     queue.metadata.send(
       `🎵 Added to queue: **${track.title}** by **${track.author}**`
     );
   });
 
   // Playlist add event
-  player.on("tracksAdd", (queue, tracks) => {
+  player.events.on("audioTracksAdd", (queue, tracks) => {
     queue.metadata.send(`🎵 Added ${tracks.length} tracks to the queue`);
   });
 
   // Error events
-  player.on("error", (queue, error) => {
+  player.events.on("error", (queue, error) => {
     console.error(`[Player Error] ${error.message}`);
     queue.metadata.send(`❌ Error: ${error.message}`);
   });
 
-  player.on("connectionError", (queue, error) => {
+  player.events.on("playerError", (queue, error) => {
+    console.error(`[Player Error] ${error.message}`);
+    queue.metadata.send(`❌ Player Error: ${error.message}`);
+  });
+
+  player.events.on("connectionError", (queue, error) => {
     console.error(`[Connection Error] ${error.message}`);
     queue.metadata.send(`❌ Connection Error: ${error.message}`);
   });
 
   // Queue end event
-  player.on("queueEnd", (queue) => {
+  player.events.on("emptyQueue", (queue) => {
     queue.metadata.send("✅ Queue finished! Use `/play` to add more songs.");
   });
 
   // Bot disconnect event
-  player.on("botDisconnect", (queue) => {
+  player.events.on("disconnect", (queue) => {
     queue.metadata.send(
       "❌ I was manually disconnected from the voice channel, clearing queue!"
     );
   });
 
   // Channel empty event
-  player.on("channelEmpty", (queue) => {
+  player.events.on("emptyChannel", (queue) => {
     queue.metadata.send("❌ Nobody is in the voice channel, leaving...");
   });
 }
@@ -126,7 +145,7 @@ async function playSong(interaction, query) {
     }
 
     // Create a queue for this guild
-    const queue = player.createQueue(interaction.guild, {
+    const queue = player.nodes.create(interaction.guild, {
       metadata: interaction.channel, // We can access this metadata object from the queue
       leaveOnEmpty: true,
       leaveOnEmptyCooldown: 5000, // 5 seconds
@@ -210,9 +229,9 @@ async function playSong(interaction, query) {
       }
 
       // Play the queue if it's not already playing
-      if (!queue.playing) {
+      if (!queue.isPlaying()) {
         console.log("Starting playback");
-        await queue.play();
+        await queue.node.play();
       } else {
         console.log("Queue is already playing");
       }
@@ -237,48 +256,48 @@ async function playSong(interaction, query) {
  * @param {Interaction} interaction - The Discord interaction
  */
 async function skipSong(interaction) {
-    try {
-        // Get the member
-        const member = interaction.member;
-        
-        // Check if the member is in a voice channel
-        if (!member.voice.channel) {
-            return interaction.reply({
-                content: '❌ You need to be in a voice channel to skip songs!',
-                ephemeral: true
-            });
-        }
+  try {
+    // Get the member
+    const member = interaction.member;
 
-        // Get the player instance from global
-        const player = global.player;
-        if (!player) {
-            return interaction.reply({
-                content: '❌ Music player is not initialized!',
-                ephemeral: true
-            });
-        }
-
-        // Get the queue for this guild
-        const queue = player.getQueue(interaction.guildId);
-        if (!queue || !queue.playing) {
-            return interaction.reply({
-                content: '❌ No music is currently playing!',
-                ephemeral: true
-            });
-        }
-
-        // Skip the current song
-        const currentTrack = queue.current;
-        const success = queue.skip();
-        
-        return interaction.reply(`✅ Skipped **${currentTrack.title}**!`);
-    } catch (error) {
-        console.error('Error in skipSong function:', error);
-        return interaction.reply({
-            content: `❌ An error occurred: ${error.message}`,
-            ephemeral: true
-        });
+    // Check if the member is in a voice channel
+    if (!member.voice.channel) {
+      return interaction.reply({
+        content: "❌ You need to be in a voice channel to skip songs!",
+        ephemeral: true,
+      });
     }
+
+    // Get the player instance from global
+    const player = global.player;
+    if (!player) {
+      return interaction.reply({
+        content: "❌ Music player is not initialized!",
+        ephemeral: true,
+      });
+    }
+
+    // Get the queue for this guild
+    const queue = player.nodes.get(interaction.guildId);
+    if (!queue || !queue.isPlaying()) {
+      return interaction.reply({
+        content: "❌ No music is currently playing!",
+        ephemeral: true,
+      });
+    }
+
+    // Skip the current song
+    const currentTrack = queue.currentTrack;
+    queue.node.skip();
+
+    return interaction.reply(`✅ Skipped **${currentTrack.title}**!`);
+  } catch (error) {
+    console.error("Error in skipSong function:", error);
+    return interaction.reply({
+      content: `❌ An error occurred: ${error.message}`,
+      ephemeral: true,
+    });
+  }
 }
 
 /**
@@ -286,47 +305,47 @@ async function skipSong(interaction) {
  * @param {Interaction} interaction - The Discord interaction
  */
 async function stopMusic(interaction) {
-    try {
-        // Get the member
-        const member = interaction.member;
-        
-        // Check if the member is in a voice channel
-        if (!member.voice.channel) {
-            return interaction.reply({
-                content: '❌ You need to be in a voice channel to stop the music!',
-                ephemeral: true
-            });
-        }
+  try {
+    // Get the member
+    const member = interaction.member;
 
-        // Get the player instance from global
-        const player = global.player;
-        if (!player) {
-            return interaction.reply({
-                content: '❌ Music player is not initialized!',
-                ephemeral: true
-            });
-        }
-
-        // Get the queue for this guild
-        const queue = player.getQueue(interaction.guildId);
-        if (!queue || !queue.playing) {
-            return interaction.reply({
-                content: '❌ No music is currently playing!',
-                ephemeral: true
-            });
-        }
-
-        // Clear the queue and stop the music
-        queue.destroy();
-        
-        return interaction.reply('🛑 Stopped the music and cleared the queue!');
-    } catch (error) {
-        console.error('Error in stopMusic function:', error);
-        return interaction.reply({
-            content: `❌ An error occurred: ${error.message}`,
-            ephemeral: true
-        });
+    // Check if the member is in a voice channel
+    if (!member.voice.channel) {
+      return interaction.reply({
+        content: "❌ You need to be in a voice channel to stop the music!",
+        ephemeral: true,
+      });
     }
+
+    // Get the player instance from global
+    const player = global.player;
+    if (!player) {
+      return interaction.reply({
+        content: "❌ Music player is not initialized!",
+        ephemeral: true,
+      });
+    }
+
+    // Get the queue for this guild
+    const queue = player.nodes.get(interaction.guildId);
+    if (!queue) {
+      return interaction.reply({
+        content: "❌ No music is currently playing!",
+        ephemeral: true,
+      });
+    }
+
+    // Clear the queue and stop the music
+    queue.delete();
+
+    return interaction.reply("🛑 Stopped the music and cleared the queue!");
+  } catch (error) {
+    console.error("Error in stopMusic function:", error);
+    return interaction.reply({
+      content: `❌ An error occurred: ${error.message}`,
+      ephemeral: true,
+    });
+  }
 }
 
 /**
@@ -334,64 +353,69 @@ async function stopMusic(interaction) {
  * @param {Interaction} interaction - The Discord interaction
  */
 async function showQueue(interaction) {
-    try {
-        // Get the player instance from global
-        const player = global.player;
-        if (!player) {
-            return interaction.reply({
-                content: '❌ Music player is not initialized!',
-                ephemeral: true
-            });
-        }
-
-        // Get the queue for this guild
-        const queue = player.getQueue(interaction.guildId);
-        if (!queue || !queue.playing) {
-            return interaction.reply({
-                content: '❌ No music is currently playing!',
-                ephemeral: true
-            });
-        }
-
-        // Get the current track and upcoming tracks
-        const currentTrack = queue.current;
-        const tracks = queue.tracks;
-
-        // Create an embed for the queue
-        const queueEmbed = {
-            title: '🎵 Music Queue',
-            description: `**Now Playing:**\n${currentTrack.title} by ${currentTrack.author}\n\n`,
-            color: 0x3498db,
-            fields: [],
-            footer: {
-                text: `Requested by ${interaction.user.tag}`
-            }
-        };
-
-        // Add upcoming tracks to the embed
-        if (tracks.length > 0) {
-            const trackList = tracks.slice(0, 10).map((track, index) => 
-                `${index + 1}. ${track.title} by ${track.author}`
-            ).join('\n');
-            
-            queueEmbed.description += `**Upcoming Tracks:**\n${trackList}`;
-            
-            // If there are more tracks than we're showing
-            if (tracks.length > 10) {
-                queueEmbed.description += `\n\n...and ${tracks.length - 10} more track(s)`;
-            }
-        } else {
-            queueEmbed.description += '**Upcoming Tracks:**\nNo tracks in queue';
-        }
-
-        return interaction.reply({ embeds: [queueEmbed] });
-    } catch (error) {
-        console.error('Error in showQueue function:', error);
-        return interaction.reply({
-            content: `❌ An error occurred: ${error.message}`,
-            ephemeral: true
-        });
+  try {
+    // Get the player instance from global
+    const player = global.player;
+    if (!player) {
+      return interaction.reply({
+        content: "❌ Music player is not initialized!",
+        ephemeral: true,
+      });
     }
+
+    // Get the queue for this guild
+    const queue = player.nodes.get(interaction.guildId);
+    if (!queue || !queue.isPlaying()) {
+      return interaction.reply({
+        content: "❌ No music is currently playing!",
+        ephemeral: true,
+      });
+    }
+
+    // Get the current track and upcoming tracks
+    const currentTrack = queue.currentTrack;
+    const tracks = queue.tracks.toArray();
+
+    // Create an embed for the queue
+    const queueEmbed = {
+      title: "🎵 Music Queue",
+      description: `**Now Playing:**\n${currentTrack.title} by ${currentTrack.author}\n\n`,
+      color: 0x3498db,
+      fields: [],
+      footer: {
+        text: `Requested by ${interaction.user.tag}`,
+      },
+    };
+
+    // Add upcoming tracks to the embed
+    if (tracks.length > 0) {
+      const trackList = tracks
+        .slice(0, 10)
+        .map(
+          (track, index) => `${index + 1}. ${track.title} by ${track.author}`
+        )
+        .join("\n");
+
+      queueEmbed.description += `**Upcoming Tracks:**\n${trackList}`;
+
+      // If there are more tracks than we're showing
+      if (tracks.length > 10) {
+        queueEmbed.description += `\n\n...and ${
+          tracks.length - 10
+        } more track(s)`;
+      }
+    } else {
+      queueEmbed.description += "**Upcoming Tracks:**\nNo tracks in queue";
+    }
+
+    return interaction.reply({ embeds: [queueEmbed] });
+  } catch (error) {
+    console.error("Error in showQueue function:", error);
+    return interaction.reply({
+      content: `❌ An error occurred: ${error.message}`,
+      ephemeral: true,
+    });
+  }
 }
 
 /**
