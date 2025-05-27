@@ -12,6 +12,13 @@ const {
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
+const libsodium = require("libsodium-wrappers");
+
+// Initialize libsodium
+(async () => {
+  await libsodium.ready;
+  console.log("libsodium initialized successfully");
+})();
 
 // Configure play-dl with more robust settings
 play.setToken({
@@ -55,6 +62,11 @@ async function joinChannel(context) {
     console.log("=== JOIN CHANNEL FUNCTION STARTED ===");
     console.log(`Context type: ${typeof context}`);
     console.log(`Context keys: ${Object.keys(context).join(", ")}`);
+
+    // Ensure libsodium is ready
+    console.log("Waiting for libsodium to be ready...");
+    await libsodium.ready;
+    console.log("libsodium is ready");
 
     // Check if context is a message or interaction
     const isInteraction = context.commandName !== undefined;
@@ -114,16 +126,25 @@ async function joinChannel(context) {
     console.log("Creating voice connection...");
 
     // Create a connection to the voice channel
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: context.guild.id,
-      adapterCreator: context.guild.voiceAdapterCreator,
-      selfDeaf: true, // Bot deafens itself to save bandwidth
-      selfMute: false, // Bot needs to be able to speak
-    });
+    let connection;
+    try {
+      connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: context.guild.id,
+        adapterCreator: context.guild.voiceAdapterCreator,
+        selfDeaf: true, // Bot deafens itself to save bandwidth
+        selfMute: false, // Bot needs to be able to speak
+      });
 
-    console.log("Voice connection created");
-    console.log(`Connection state: ${connection.state.status}`);
+      console.log("Voice connection created");
+      console.log(`Connection state: ${connection.state.status}`);
+    } catch (connectionError) {
+      console.error("Error creating voice connection:", connectionError);
+      return {
+        success: false,
+        message: `Failed to connect to voice channel: ${connectionError.message}`,
+      };
+    }
 
     // Log when connection state changes
     connection.on(VoiceConnectionStatus.Ready, () => {
