@@ -10,13 +10,6 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
-const {
-  joinChannel,
-  leaveChannel,
-  playYouTube,
-  skipSong,
-  getQueue,
-} = require("./musicPlayer");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
