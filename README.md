@@ -163,8 +163,13 @@ When configured with a `LOG_CHANNEL_ID`, the bot will send rich embeds to the sp
 
 The bot supports both traditional prefix commands (starting with `!`) and Discord slash commands (starting with `/`).
 
-### Bot Commands
-- `!help` or `/help` - Show the help message with all available commands
+### Music Commands
+- `!play [YouTube URL]` or `/play [YouTube URL]` - Play a YouTube video in your voice channel (alias: `!p`)
+- `!skip` or `/skip` - Skip the current song (alias: `!s`)
+- `!queue` or `/queue` - Show the current music queue (alias: `!q`)
+- `!join` or `/join` - Make the bot join your voice channel
+- `!leave` or `/leave` - Make the bot leave the voice channel (alias: `!dc`)
+- `!help` - Show the help message with all available commands
 
 ### Game Commands
 - `!roll` or `/roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal Company)
@@ -246,8 +251,6 @@ If the bot can't create a new category and channel, it will fall back to using a
 Bot doesn't have 'Manage Channels' permission in guild "Your Server". Cannot create category.
 Using random channel #general (no prepared channel found)
 ```
-
-
 
 ## License
 

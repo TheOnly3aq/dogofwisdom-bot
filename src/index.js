@@ -10,6 +10,13 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
+const {
+  joinChannel,
+  leaveChannel,
+  playYouTube,
+  skipSong,
+  getQueue,
+} = require("./musicPlayer");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -24,8 +31,6 @@ const config = {
   dailyMessagesEnabled: true, // Default: daily messages are enabled
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
   ownerDMsEnabled: true, // Default: DMs to server owner are enabled
-  autoRoleEnabled: true, // Default: autorole is enabled
-  autoRoleId: process.env.AUTO_ROLE_ID || "", // Role ID to assign to new members
   adminRoleId: process.env.ADMIN_ROLE_ID || "1376665402758926487", // Role ID that can control bot features
   botOwnerId: process.env.BOT_OWNER_ID || "", // User ID of the bot owner who can use commands in DMs
   adminUserId: process.env.ADMIN_USER_ID || "", // Additional user ID that can use admin commands
@@ -40,6 +45,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
 });
@@ -70,13 +76,6 @@ const commands = [
   new SlashCommandBuilder()
     .setName("toggleownerdms")
     .setDescription("Toggle DM notifications to server owners on/off")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
-    .toJSON(),
-
-  // Toggle autorole command (admin only)
-  new SlashCommandBuilder()
-    .setName("toggleautorole")
-    .setDescription("Toggle automatic role assignment for new members on/off")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
     .toJSON(),
 
@@ -126,9 +125,36 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 
+  // Music commands
   new SlashCommandBuilder()
-    .setName("help")
-    .setDescription("Show the help message with all available commands")
+    .setName("play")
+    .setDescription("Play a YouTube video")
+    .addStringOption((option) =>
+      option
+        .setName("url")
+        .setDescription("The YouTube URL to play")
+        .setRequired(true)
+    )
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("skip")
+    .setDescription("Skip the current song")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("queue")
+    .setDescription("Show the current music queue")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("join")
+    .setDescription("Join your voice channel")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("leave")
+    .setDescription("Leave the voice channel")
     .toJSON(),
 
   // Send direct message command (admin only)
@@ -220,93 +246,6 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// Handle new members joining a server
-client.on("guildMemberAdd", async (member) => {
-  try {
-    // Check if autorole is enabled
-    if (!config.autoRoleEnabled) {
-      console.log(
-        `Autorole is disabled. Skipping role assignment for ${member.user.tag}.`
-      );
-      return;
-    }
-
-    // Check if the autorole ID is configured
-    if (!config.autoRoleId) {
-      console.log(
-        `Autorole ID is not configured. Skipping role assignment for ${member.user.tag}.`
-      );
-      return;
-    }
-
-    // Get the role from the guild
-    const role = member.guild.roles.cache.get(config.autoRoleId);
-
-    // Check if the role exists
-    if (!role) {
-      console.error(
-        `Role with ID ${config.autoRoleId} not found in guild ${member.guild.name}.`
-      );
-      logMessage(
-        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Role with ID ${config.autoRoleId} not found.`,
-        "error"
-      );
-      return;
-    }
-
-    // Check if the bot has permissions to assign roles
-    if (!member.guild.members.me.permissions.has("ManageRoles")) {
-      console.error(
-        `Bot doesn't have 'Manage Roles' permission in guild ${member.guild.name}.`
-      );
-      logMessage(
-        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Missing 'Manage Roles' permission.`,
-        "error"
-      );
-      return;
-    }
-
-    // Check if the bot's highest role is higher than the role to assign
-    if (member.guild.members.me.roles.highest.position <= role.position) {
-      console.error(
-        `Bot's highest role is not high enough to assign role ${role.name} in guild ${member.guild.name}.`
-      );
-      logMessage(
-        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Bot's highest role is not high enough.`,
-        "error"
-      );
-      return;
-    }
-
-    // Assign the role to the member
-    await member.roles.add(role);
-
-    console.log(
-      `Assigned role ${role.name} to new member ${member.user.tag} in ${member.guild.name}.`
-    );
-
-    // Log the role assignment
-    logMessage(
-      `Assigned role ${role.name} to new member ${member.user.tag} in ${member.guild.name}.`,
-      "autorole",
-      {
-        User: `${member.user.tag} (${member.user.id})`,
-        Guild: member.guild.name,
-        Role: `${role.name} (${role.id})`,
-      }
-    );
-  } catch (error) {
-    console.error(
-      `Error assigning role to new member ${member.user.tag}:`,
-      error
-    );
-    logMessage(
-      `Error assigning role to new member ${member.user.tag} in ${member.guild.name}: ${error.message}`,
-      "error"
-    );
-  }
-});
-
 // Log when the bot is ready
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -343,14 +282,6 @@ client.once("ready", async () => {
   );
   logMessage(
     `Log channel ID set to: ${config.logChannelId || "Not configured"}`,
-    "startup"
-  );
-  logMessage(
-    `Auto role ID set to: ${config.autoRoleId || "Not configured"}`,
-    "startup"
-  );
-  logMessage(
-    `Auto role is ${config.autoRoleEnabled ? "enabled" : "disabled"}`,
     "startup"
   );
 
@@ -713,9 +644,77 @@ client.on("messageCreate", async (message) => {
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
-  // Handle commands
+  // Handle music commands
   try {
-    if (command === "roll") {
+    if (command === "play" || command === "p") {
+      // Check if a URL was provided
+      if (!args.length) {
+        return message.reply("Please provide a YouTube URL!");
+      }
+
+      // Get the URL
+      const url = args[0];
+
+      // Send a loading message
+      const loadingMsg = await message.channel.send("🔄 Loading...");
+
+      // Play the YouTube video
+      const result = await playYouTube(message, url);
+
+      // Update the loading message with the result
+      if (result.success) {
+        loadingMsg.edit(result.message);
+      } else {
+        loadingMsg.edit(`❌ ${result.message}`);
+      }
+    } else if (command === "skip" || command === "s") {
+      // Skip the current song
+      const result = skipSong(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "queue" || command === "q") {
+      // Get the queue
+      const result = getQueue(message.guild.id);
+
+      if (!result.success) {
+        return message.channel.send(`❌ ${result.message}`);
+      }
+
+      // Format the queue
+      let queueMessage = "";
+
+      if (result.current) {
+        queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
+      }
+
+      if (result.queue.length) {
+        queueMessage += "**Queue:**\n";
+        result.queue.forEach((song, index) => {
+          queueMessage += `${index + 1}. ${song.title}\n`;
+        });
+      } else {
+        queueMessage += "**Queue is empty**";
+      }
+
+      message.channel.send(queueMessage);
+    } else if (
+      command === "leave" ||
+      command === "disconnect" ||
+      command === "dc"
+    ) {
+      // Leave the voice channel
+      const result = leaveChannel(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "join") {
+      // Join the voice channel
+      const result = await joinChannel(message);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "roll") {
       // List of games to roll from
       const games = ["Minecraft", "Repo", "Lethal Company"];
 
@@ -726,31 +725,6 @@ client.on("messageCreate", async (message) => {
       message.channel.send(
         `🎲 The dice has been rolled! You should play: **${randomGame}**`
       );
-    } else if (command === "help") {
-      // Send help message
-      const helpEmbed = {
-        title: "Dog of Wisdom Bot - Help",
-        description: "Here are the available commands:",
-        color: 0x3498db,
-        fields: [
-          {
-            name: "🎲 Game Commands",
-            value: "`!roll` - Roll a dice to decide what game to play",
-          },
-          {
-            name: "⚙️ Admin Commands",
-            value:
-              "`!toggledaily` - Toggle daily messages on/off\n" +
-              "`!togglenicknames` - Toggle weekly nickname changes on/off\n" +
-              "Use `/` commands for more admin features",
-          },
-        ],
-        footer: {
-          text: "All commands are also available as slash (/) commands",
-        },
-      };
-
-      message.channel.send({ embeds: [helpEmbed] });
     } else if (command === "toggledaily") {
       // Check if the user has the required admin role
       const member = message.member;
@@ -812,8 +786,16 @@ client.on("messageCreate", async (message) => {
         `Server owner DM notifications ${status} by ${message.author.tag}`
       );
     } else if (command === "help") {
-      // Display help message
+      // Display help message for music commands
       const helpMessage = `
+**Music Commands:**
+\`${prefix}play [YouTube URL]\` - Play a YouTube video
+\`${prefix}skip\` - Skip the current song
+\`${prefix}queue\` - Show the current queue
+\`${prefix}join\` - Join your voice channel
+\`${prefix}leave\` - Leave the voice channel
+\`${prefix}help\` - Show this help message
+
 **Game Commands:**
 \`${prefix}roll\` - Roll a dice to decide what game to play
 
@@ -821,6 +803,12 @@ client.on("messageCreate", async (message) => {
 \`${prefix}toggledaily\` - Toggle daily messages on/off (requires admin role)
 \`${prefix}togglenicknames\` - Toggle weekly nickname changes on/off (requires admin role)
 \`${prefix}toggleownerdms\` - Toggle server owner DM notifications on/off (requires admin role)
+
+**Aliases:**
+\`${prefix}p\` - Alias for play
+\`${prefix}s\` - Alias for skip
+\`${prefix}q\` - Alias for queue
+\`${prefix}dc\` - Alias for leave
 `;
       message.channel.send(helpMessage);
     }
@@ -982,30 +970,6 @@ client.on("interactionCreate", async (interaction) => {
       // Log the change
       console.log(
         `Server owner DM notifications ${status} by ${interaction.user.tag}`
-      );
-    } else if (commandName === "toggleautorole") {
-      // Check if the user has the required admin role
-      const member = interaction.member;
-      if (!member.roles.cache.has(config.adminRoleId)) {
-        return interaction.reply({
-          content:
-            "❌ You don't have permission to use this command. You need the admin role.",
-          ephemeral: true, // Only visible to the command user
-        });
-      }
-
-      // Toggle the autorole state
-      config.autoRoleEnabled = !config.autoRoleEnabled;
-
-      // Send confirmation message
-      const status = config.autoRoleEnabled ? "enabled" : "disabled";
-      await interaction.reply(
-        `✅ Automatic role assignment for new members has been **${status}**!`
-      );
-
-      // Log the change
-      console.log(
-        `Automatic role assignment ${status} by ${interaction.user.tag}`
       );
     }
 
@@ -1383,38 +1347,68 @@ client.on("interactionCreate", async (interaction) => {
           ephemeral: true,
         });
       }
-    } else if (commandName === "help") {
-      // Send help message
-      const helpEmbed = {
-        title: "Dog of Wisdom Bot - Help",
-        description: "Here are the available commands:",
-        color: 0x3498db,
-        fields: [
-          {
-            name: "🎲 Game Commands",
-            value: "`/roll` - Roll a dice to decide what game to play",
-          },
-          {
-            name: "⚙️ Admin Commands",
-            value:
-              "`/toggledaily` - Toggle daily messages on/off\n" +
-              "`/togglenicknames` - Toggle weekly nickname changes on/off\n" +
-              "`/toggleownerdms` - Toggle DM notifications to server owners\n" +
-              "`/send-now` - Send the daily message immediately\n" +
-              "`/test-nicknames` - Test the nickname change functionality\n" +
-              "`/change-nicknames` - Manually change all nicknames\n" +
-              "`/test-group-snack` - Test the group snack event\n" +
-              "`/check-timezone` - Check the timezone configuration\n" +
-              "`/test-owner-dm` - Test sending a nickname suggestion DM\n" +
-              "`/send-dm` - Send a direct message to a specific user",
-          },
-        ],
-        footer: {
-          text: "All commands are also available with the ! prefix (e.g., !roll)",
-        },
-      };
+    }
 
-      await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+    // Music commands
+    else if (commandName === "play") {
+      // Get the URL from the options
+      const url = interaction.options.getString("url");
+
+      // Defer the reply to give time for processing
+      await interaction.deferReply();
+
+      // Play the YouTube video
+      const result = await playYouTube(interaction, url);
+
+      // Send the result
+      if (result.success) {
+        await interaction.editReply(result.message);
+      } else {
+        await interaction.editReply(`❌ ${result.message}`);
+      }
+    } else if (commandName === "skip") {
+      // Skip the current song
+      const result = skipSong(interaction.guild.id);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (commandName === "queue") {
+      // Get the queue
+      const result = getQueue(interaction.guild.id);
+
+      if (!result.success) {
+        return interaction.reply(`❌ ${result.message}`);
+      }
+
+      // Format the queue
+      let queueMessage = "";
+
+      if (result.current) {
+        queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
+      }
+
+      if (result.queue.length) {
+        queueMessage += "**Queue:**\n";
+        result.queue.forEach((song, index) => {
+          queueMessage += `${index + 1}. ${song.title}\n`;
+        });
+      } else {
+        queueMessage += "**Queue is empty**";
+      }
+
+      await interaction.reply(queueMessage);
+    } else if (commandName === "join") {
+      // Join the voice channel
+      const result = await joinChannel(interaction);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (commandName === "leave") {
+      // Leave the voice channel
+      const result = leaveChannel(interaction.guild.id);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
     }
   } catch (error) {
     console.error("Error handling slash command:", error);
