@@ -8,34 +8,90 @@ const { QueryType } = require("discord-player");
  * @returns {Player} - The initialized player
  */
 async function initializePlayer(client) {
-  // Create a new Player instance
-  const player = new Player(client);
+  // Configure FFmpeg path
+  try {
+    const ffmpeg = require("ffmpeg-static");
+    console.log("FFmpeg path:", ffmpeg);
+  } catch (ffmpegError) {
+    console.log("FFmpeg not found:", ffmpegError.message);
+  }
+
+  // Create a new Player instance with specific options
+  const player = new Player(client, {
+    ytdlOptions: {
+      quality: "highestaudio",
+      highWaterMark: 1 << 25, // 32MB buffer
+      dlChunkSize: 0, // Disable chunking for better performance
+    },
+    connectionTimeout: 30000, // 30 seconds
+    skipFFmpeg: false, // Ensure FFmpeg is used
+    debug: true, // Enable debug mode
+    useLegacyFFmpeg: false, // Use modern FFmpeg
+    smoothVolume: true, // Enable smooth volume transitions
+    disableVolume: false, // Enable volume control
+    bufferingTimeout: 15000, // 15 seconds buffering timeout
+    noEmitInsert: false, // Emit insert events
+
+    // Voice-related options
+    lagMonitor: 1000, // Monitor voice connection lag
+    volumeSmoothness: 0.1, // Smooth volume transitions
+
+    // Audio quality options
+    audioCodec: "opus", // Use opus codec
+    bitrate: "auto", // Auto bitrate
+
+    // Play-dl specific options
+    fetchBeforeQueued: true, // Fetch stream info before queuing
+    preferredQuality: "high", // Prefer high quality
+  });
 
   // Add event listeners
   setupPlayerEvents(player);
 
   // For discord-player v7.1.0, we need to register extractors
   try {
-    // Use the DefaultExtractors from the package
-    const { DefaultExtractors } = require("@discord-player/extractor");
+    // First try to load the built-in extractors
+    await player.extractors.loadDefault();
+    console.log("Loaded default extractors");
 
-    // Register all default extractors
-    await player.extractors.loadMulti(DefaultExtractors);
+    // Then try to register play-dl for better YouTube support
+    try {
+      // Configure play-dl
+      const play = require("play-dl");
 
-    console.log("Player initialized with default extractors");
+      // Create a custom extractor using play-dl
+      const { YouTubeExtractor } = require("@discord-player/extractor");
+
+      // Register the YouTube extractor
+      player.extractors.register(YouTubeExtractor);
+
+      console.log("Registered YouTube extractor with play-dl");
+    } catch (playDlError) {
+      console.log("Could not register play-dl extractor:", playDlError.message);
+    }
+
+    // Log all registered extractors
+    const extractors = player.extractors.getAll();
+    console.log(`Total registered extractors: ${extractors.length}`);
+    extractors.forEach((ext) => console.log(`- ${ext.constructor.name}`));
   } catch (error) {
     console.log("Error initializing extractors:", error.message);
 
-    // Try a fallback approach
+    // Last resort fallback
     try {
-      // Try to load default extractors directly
-      await player.extractors.loadDefault();
-      console.log("Fallback: Loaded default extractors");
+      const { DefaultExtractors } = require("@discord-player/extractor");
+      await player.extractors.loadMulti(DefaultExtractors);
+      console.log("Fallback: Loaded extractors from @discord-player/extractor");
     } catch (fallbackError) {
-      console.log("Fallback extractor loading failed:", fallbackError.message);
+      console.log(
+        "All extractor loading methods failed:",
+        fallbackError.message
+      );
     }
   }
 
+  // Log player initialization complete
+  console.log("Discord Player initialization complete");
   return player;
 }
 
@@ -46,6 +102,16 @@ async function initializePlayer(client) {
 function setupPlayerEvents(player) {
   // Track start event
   player.events.on("playerStart", (queue, track) => {
+    console.log(
+      `[EVENT] playerStart: Playing "${track.title}" by "${track.author}"`
+    );
+    console.log(
+      `[EVENT] playerStart: Queue connection status: ${
+        queue.connection ? "Connected" : "Not connected"
+      }`
+    );
+    console.log(`[EVENT] playerStart: Queue volume: ${queue.node.volume}`);
+
     queue.metadata.send(
       `🎵 Now playing: **${track.title}** by **${track.author}**`
     );
@@ -94,6 +160,16 @@ function setupPlayerEvents(player) {
   // Channel empty event
   player.events.on("emptyChannel", (queue) => {
     queue.metadata.send("❌ Nobody is in the voice channel, leaving...");
+  });
+
+  // Debug event - log all events
+  player.events.on("debug", (queue, message) => {
+    console.log(`[Player Debug] ${message}`);
+  });
+
+  // Add a raw event listener to catch all events
+  player.events.on("raw", (eventName, ...args) => {
+    console.log(`[Player Raw Event] ${eventName}`);
   });
 }
 
@@ -144,7 +220,7 @@ async function playSong(interaction, query) {
       });
     }
 
-    // Create a queue for this guild
+    // Create a queue for this guild with more detailed options
     const queue = player.nodes.create(interaction.guild, {
       metadata: interaction.channel, // We can access this metadata object from the queue
       leaveOnEmpty: true,
@@ -152,12 +228,47 @@ async function playSong(interaction, query) {
       leaveOnEnd: true,
       leaveOnEndCooldown: 300000, // 5 minutes
       volume: 80,
+      bufferingTimeout: 15000, // 15 seconds
+      connectionTimeout: 30000, // 30 seconds
+      selfDeaf: true, // Bot should deafen itself to save bandwidth
+      maxSize: 1000, // Maximum queue size
+      maxHistorySize: 100, // Maximum history size
+      noEmitInsert: false, // Emit insert events
+      skipOnNoStream: true, // Skip when no stream is available
     });
 
     try {
-      // Connect to the voice channel
+      // Connect to the voice channel with detailed logging
       if (!queue.connection) {
-        await queue.connect(member.voice.channel);
+        console.log(
+          `Attempting to connect to voice channel: ${member.voice.channel.name} (${member.voice.channel.id})`
+        );
+
+        // Force disconnect any existing connections first
+        try {
+          const existingConnection =
+            interaction.guild.members.me?.voice?.connection;
+          if (existingConnection) {
+            console.log("Forcing disconnect from existing voice connection");
+            existingConnection.disconnect();
+          }
+        } catch (disconnectError) {
+          console.log(
+            "Error during force disconnect:",
+            disconnectError.message
+          );
+        }
+
+        // Connect with a timeout
+        const connectionPromise = queue.connect(member.voice.channel);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Connection timeout")), 10000)
+        );
+
+        await Promise.race([connectionPromise, timeoutPromise]);
+        console.log("Successfully connected to voice channel");
+      } else {
+        console.log("Already connected to voice channel");
       }
     } catch (error) {
       // Destroy the queue if we failed to connect
@@ -178,11 +289,64 @@ async function playSong(interaction, query) {
       console.log("Searching for song:", query);
       console.log("Is YouTube URL:", isYouTubeUrl);
 
-      // Use the appropriate search engine
-      searchResult = await player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: isYouTubeUrl ? QueryType.YOUTUBE_VIDEO : QueryType.AUTO,
-      });
+      // Try to use play-dl directly for YouTube URLs for better reliability
+      if (isYouTubeUrl) {
+        try {
+          console.log("Using play-dl for YouTube URL");
+          const play = require("play-dl");
+
+          // Get video info
+          const videoInfo = await play.video_info(query);
+          console.log("Video info retrieved:", videoInfo.video_details.title);
+
+          // Use the proper track creation method for discord-player v7.1.0
+          const { Track } = require("discord-player");
+
+          // Create a proper Track object
+          const track = new Track(player, {
+            title: videoInfo.video_details.title,
+            description: videoInfo.video_details.description,
+            author: videoInfo.video_details.channel.name,
+            url: query,
+            thumbnail: videoInfo.video_details.thumbnails[0].url,
+            duration: videoInfo.video_details.durationInSec * 1000,
+            views: videoInfo.video_details.views,
+            requestedBy: interaction.user,
+            source: "youtube",
+            // Add the raw data needed for playback
+            raw: {
+              source: "youtube",
+              url: query,
+              id: videoInfo.video_details.id,
+              engine: "play-dl",
+            },
+          });
+
+          // Create a search result object with the proper Track object
+          searchResult = {
+            playlist: null,
+            tracks: [track],
+          };
+
+          console.log("Created track manually using play-dl");
+        } catch (playDlError) {
+          console.log(
+            "Error using play-dl, falling back to default search:",
+            playDlError.message
+          );
+          // Fall back to default search
+          searchResult = await player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: QueryType.YOUTUBE_VIDEO,
+          });
+        }
+      } else {
+        // Use the default search for non-YouTube URLs
+        searchResult = await player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: QueryType.AUTO,
+        });
+      }
 
       console.log(
         "Search result:",
@@ -215,14 +379,25 @@ async function playSong(interaction, query) {
         console.log(
           `Adding playlist with ${searchResult.tracks.length} tracks`
         );
-        queue.addTrack(searchResult.tracks);
+
+        // Use the proper method for adding tracks in v7.1.0
+        await queue.tracks.add(searchResult.tracks);
+        console.log(`Queue now has ${queue.tracks.size} tracks`);
+
         await interaction.followUp(
           `✅ Added playlist **${searchResult.playlist.title}** with ${searchResult.tracks.length} songs to the queue!`
         );
       } else {
         // Add the track to the queue
         console.log(`Adding single track: ${searchResult.tracks[0].title}`);
-        queue.addTrack(searchResult.tracks[0]);
+
+        // Use the proper method for adding a track in v7.1.0
+        const addResult = await queue.tracks.add(searchResult.tracks[0]);
+        console.log(
+          `Track added to queue: ${addResult ? "Success" : "Failed"}`
+        );
+        console.log(`Queue now has ${queue.tracks.size} tracks`);
+
         await interaction.followUp(
           `✅ Added **${searchResult.tracks[0].title}** to the queue!`
         );
@@ -231,9 +406,62 @@ async function playSong(interaction, query) {
       // Play the queue if it's not already playing
       if (!queue.isPlaying()) {
         console.log("Starting playback");
-        await queue.node.play();
+        try {
+          // Check if we have a valid connection
+          if (!queue.connection) {
+            console.log("No connection found, attempting to connect again");
+            await queue.connect(member.voice.channel);
+          }
+
+          console.log(
+            "Connection status:",
+            queue.connection ? "Connected" : "Not connected",
+            "to channel:",
+            member.voice.channel ? member.voice.channel.name : "Unknown"
+          );
+
+          // Check if we have tracks in the queue
+          console.log("Tracks in queue:", queue.tracks.size);
+          console.log(
+            "Current track:",
+            queue.currentTrack ? queue.currentTrack.title : "None"
+          );
+
+          // Make sure we have a current track
+          if (!queue.currentTrack && queue.tracks.size > 0) {
+            console.log(
+              "No current track but tracks exist in queue, setting current track"
+            );
+            const nextTrack = queue.tracks.at(0);
+            queue.node.setCurrentTrack(nextTrack);
+          }
+
+          // Start playback with detailed logging
+          console.log(
+            "Starting playback with track:",
+            queue.currentTrack ? queue.currentTrack.title : "No track"
+          );
+
+          // Use the proper play method for v7.1.0
+          const playResult = await queue.node.play();
+          console.log("Play result:", playResult ? "Success" : "Failed");
+
+          // Additional logging
+          console.log(
+            "Player state:",
+            queue.node.isPlaying() ? "Playing" : "Not playing"
+          );
+          console.log("Volume:", queue.node.volume);
+        } catch (playError) {
+          console.error("Error during playback start:", playError);
+          throw playError; // Re-throw to be caught by the outer catch block
+        }
       } else {
         console.log("Queue is already playing");
+        console.log(
+          "Current track:",
+          queue.currentTrack ? queue.currentTrack.title : "None"
+        );
       }
     } catch (error) {
       console.error("Error adding track to queue:", error);
