@@ -22,9 +22,31 @@ if (!fs.existsSync(logsDir)) {
  * @param {Object} config - The bot configuration
  */
 function initializeLogger(discordClient, config) {
+  console.log(`[DEBUG] Initializing logger with client: ${!!discordClient}`);
+  console.log(`[DEBUG] Log channel ID from config: ${config.logChannelId}`);
+
   client = discordClient;
   logChannelId = config.logChannelId;
 
+  console.log(`[DEBUG] Logger initialized with channel ID: ${logChannelId}`);
+
+  // Test the channel connection
+  if (client && logChannelId) {
+    client.channels
+      .fetch(logChannelId)
+      .then((channel) => {
+        console.log(
+          `[DEBUG] Successfully connected to log channel: ${channel.name}`
+        );
+      })
+      .catch((error) => {
+        console.error(
+          `[DEBUG] Failed to connect to log channel: ${error.message}`
+        );
+      });
+  }
+
+  console.log(`[DEBUG] Calling logMessage for startup`);
   logMessage(
     `Logger initialized. Discord channel logging ${
       logChannelId ? "enabled" : "disabled"
@@ -40,13 +62,36 @@ function initializeLogger(discordClient, config) {
  * @param {Object} embedData - Optional additional data for rich embeds
  */
 async function logToDiscord(message, type, embedData = null) {
-  if (!client || !logChannelId) return;
+  // Debug logging
+  console.log(`[DEBUG] logToDiscord called with type: ${type}`);
+  console.log(
+    `[DEBUG] client exists: ${!!client}, logChannelId: ${logChannelId}`
+  );
+
+  if (!client || !logChannelId) {
+    console.log(
+      `[DEBUG] Skipping Discord logging: client or logChannelId not set`
+    );
+    return;
+  }
 
   try {
+    console.log(`[DEBUG] Attempting to fetch channel: ${logChannelId}`);
     const logChannel = await client.channels
       .fetch(logChannelId)
-      .catch(() => null);
-    if (!logChannel) return;
+      .catch((error) => {
+        console.error(`[DEBUG] Error fetching channel: ${error.message}`);
+        return null;
+      });
+
+    if (!logChannel) {
+      console.log(
+        `[DEBUG] Could not find log channel with ID: ${logChannelId}`
+      );
+      return;
+    }
+
+    console.log(`[DEBUG] Found log channel: ${logChannel.name || "Unknown"}`);
 
     // Define colors for different log types
     const colors = {
@@ -76,9 +121,16 @@ async function logToDiscord(message, type, embedData = null) {
     }
 
     // Send the log message
-    await logChannel.send({ embeds: [embed] });
+    console.log(`[DEBUG] Sending embed to channel ${logChannel.name}`);
+    const sentMessage = await logChannel.send({ embeds: [embed] });
+    console.log(
+      `[DEBUG] Successfully sent message to Discord: ${sentMessage.id}`
+    );
+    return true;
   } catch (error) {
     console.error(`Error sending log to Discord: ${error.message}`);
+    console.error(error.stack);
+    return false;
   }
 }
 
@@ -87,8 +139,14 @@ async function logToDiscord(message, type, embedData = null) {
  * @param {string} message - The message to log
  * @param {string} type - The type of log (info, command, dm, error)
  * @param {Object} embedData - Optional additional data for Discord embeds
+ * @param {boolean} skipDiscord - Whether to skip Discord logging (to prevent circular calls)
  */
-function logMessage(message, type = "info", embedData = null) {
+function logMessage(
+  message,
+  type = "info",
+  embedData = null,
+  skipDiscord = false
+) {
   const timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
   const logEntry = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
 
@@ -101,8 +159,20 @@ function logMessage(message, type = "info", embedData = null) {
 
   fs.appendFileSync(logFile, logEntry + "\n");
 
-  // Log to Discord if enabled
-  logToDiscord(message, type, embedData);
+  // Log to Discord if enabled and not skipped
+  if (!skipDiscord) {
+    console.log(`[DEBUG] Sending log to Discord: ${type}`);
+    logToDiscord(message, type, embedData).catch((error) => {
+      console.error(`[DEBUG] Error in logToDiscord: ${error.message}`);
+      // Log the error to console and file, but skip Discord to prevent loops
+      logMessage(
+        `Error sending log to Discord: ${error.message}`,
+        "error",
+        null,
+        true
+      );
+    });
+  }
 }
 
 /**
@@ -193,10 +263,45 @@ function logError(context, error) {
   logMessage(message, "error", embedData);
 }
 
+/**
+ * Test the Discord logging functionality
+ * @returns {Promise<boolean>} Whether the test was successful
+ */
+async function testDiscordLogging() {
+  console.log(`[DEBUG] Testing Discord logging functionality`);
+
+  if (!client || !logChannelId) {
+    console.log(
+      `[DEBUG] Cannot test Discord logging: client or logChannelId not set`
+    );
+    return false;
+  }
+
+  try {
+    const testEmbed = {
+      Test: "This is a test message",
+      Timestamp: new Date().toISOString(),
+    };
+
+    const result = await logToDiscord(
+      "This is a test message to verify Discord logging is working correctly.",
+      "info",
+      testEmbed
+    );
+
+    return result;
+  } catch (error) {
+    console.error(`[DEBUG] Test Discord logging failed: ${error.message}`);
+    console.error(error.stack);
+    return false;
+  }
+}
+
 module.exports = {
   initializeLogger,
   logMessage,
   logCommand,
   logDirectMessage,
   logError,
+  testDiscordLogging,
 };

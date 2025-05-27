@@ -43,10 +43,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
   ],
-  partials: [Partials.Channel],
+  partials: [Partials.Channel, Partials.Message, Partials.User],
 });
 
 // Define slash commands
@@ -188,47 +189,60 @@ const commands = [
 
 // Handle messages sent to the bot
 client.on("messageCreate", async (message) => {
-  // Ignore messages from bots (including itself)
-  if (message.author.bot) return;
+  try {
+    // Ignore messages from bots (including itself)
+    if (message.author.bot) return;
 
-  // Log all messages that mention the bot or are direct messages
-  const botMentioned = message.mentions.users.has(client.user.id);
-  const isDM = !message.guild;
+    // Log all messages that mention the bot or are direct messages
+    const botMentioned = message.mentions.users.has(client.user.id);
+    const isDM = !message.guild;
 
-  if (isDM || botMentioned) {
-    // Truncate message for privacy
-    const truncatedContent =
-      message.content.substring(0, 100) +
-      (message.content.length > 100 ? "..." : "");
+    if (isDM || botMentioned) {
+      console.log(
+        `[DEBUG] Processing message from ${message.author.tag} (${
+          isDM ? "DM" : "mention"
+        })`
+      );
 
-    // Create log message
-    const location = isDM
-      ? "DM"
-      : `#${message.channel.name} in ${message.guild.name}`;
-    const logType = isDM ? "dm-received" : "message-received";
+      // Truncate message for privacy
+      const truncatedContent =
+        message.content.substring(0, 100) +
+        (message.content.length > 100 ? "..." : "");
 
-    // Create embed data for rich logging
-    const embedData = {
-      User: `${message.author.tag} (${message.author.id})`,
-      Location: location,
-      Content: truncatedContent,
-      Attachments:
-        message.attachments.size > 0
-          ? `${message.attachments.size} attachment(s)`
-          : "None",
-    };
+      // Create log message
+      const location = isDM
+        ? "DM"
+        : `#${message.channel.name} in ${message.guild.name}`;
+      const logType = isDM ? "dm-received" : "message-received";
 
-    // Log the message
-    logMessage(
-      `Received message from ${message.author.tag} in ${location}: ${truncatedContent}`,
-      logType,
-      embedData
-    );
+      // Create embed data for rich logging
+      const embedData = {
+        User: `${message.author.tag} (${message.author.id})`,
+        Location: location,
+        Content: truncatedContent,
+        Attachments:
+          message.attachments.size > 0
+            ? `${message.attachments.size} attachment(s)`
+            : "None",
+      };
 
-    // Optional: Auto-respond to DMs
-    // if (isDM) {
-    //   message.reply("Thank you for your message! I'm a bot and don't respond to direct messages. Please use commands in a server instead.");
-    // }
+      console.log(`[DEBUG] Logging message to Discord with type: ${logType}`);
+
+      // Log the message
+      logMessage(
+        `Received message from ${message.author.tag} in ${location}: ${truncatedContent}`,
+        logType,
+        embedData
+      );
+
+      // Optional: Auto-respond to DMs
+      // if (isDM) {
+      //   message.reply("Thank you for your message! I'm a bot and don't respond to direct messages. Please use commands in a server instead.");
+      // }
+    }
+  } catch (error) {
+    console.error(`[ERROR] Error processing message: ${error.message}`);
+    console.error(error.stack);
   }
 });
 
@@ -239,10 +253,20 @@ client.once("ready", async () => {
     `Scheduled to send daily message at: ${config.cronSchedule} (${config.timezone})`
   );
 
-  // Initialize logging system
-  const { initializeLogger } = require("./logManager");
+  // Initialize logging system first, before any logging calls
+  console.log("Initializing logging system...");
   initializeLogger(client, config);
 
+  // Wait a moment to ensure logger is fully initialized
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Test Discord logging
+  const testResult = await testDiscordLogging();
+  console.log(`Discord logging test ${testResult ? "succeeded" : "failed"}`);
+
+  console.log("Logging system initialized, sending startup logs...");
+
+  // Now send startup logs
   logMessage(`Bot started successfully. Logging system active.`, "startup");
   logMessage(
     `Bot owner ID set to: ${config.botOwnerId || "Not configured"}`,
@@ -469,7 +493,14 @@ const {
   testOwnerDM,
 } = require("./nicknameManager");
 const { sendDirectMessage } = require("./directMessageManager");
-const { logMessage, logCommand, logError } = require("./logManager");
+const {
+  initializeLogger,
+  logMessage,
+  logCommand,
+  logDirectMessage,
+  logError,
+  testDiscordLogging,
+} = require("./logManager");
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
