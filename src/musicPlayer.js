@@ -21,11 +21,15 @@ const {
   NoSubscriberBehavior,
 } = require("@discordjs/voice");
 const libsodium = require("libsodium-wrappers");
+const fallbackPlayer = require("./fallbackPlayer");
 
-// Initialize libsodium
+// Initialize libsodium and fallback player
 (async () => {
   await libsodium.ready;
   console.log("Libsodium initialized successfully");
+
+  // Initialize the fallback player
+  await fallbackPlayer.initializeFallbackPlayer();
 })();
 
 // Store active connections and players for each guild
@@ -550,52 +554,26 @@ async function playNext(guildId) {
           `Failed to play song with both methods: ${nextSong.title}`
         );
 
-        // Try one more fallback method - direct URL if it's a YouTube video
-        try {
-          if (
-            nextSong.url.includes("youtube.com") ||
-            nextSong.url.includes("youtu.be")
-          ) {
-            console.log("Attempting final fallback method for YouTube video");
-
-            // Extract video ID
-            let videoId = "";
-            if (nextSong.url.includes("youtube.com/watch?v=")) {
-              videoId = nextSong.url.split("v=")[1].split("&")[0];
-            } else if (nextSong.url.includes("youtu.be/")) {
-              videoId = nextSong.url.split("youtu.be/")[1].split("?")[0];
-            }
-
-            if (videoId) {
-              // Try to get a direct audio URL (this is a simplified approach)
-              console.log(
-                `Attempting to use direct audio URL for video ID: ${videoId}`
-              );
-
-              // Skip to the next song after informing the user
-              setTimeout(() => playNext(guildId), 1000);
-
-              return {
-                success: false,
-                message: `Having trouble playing ${nextSong.title}. YouTube's API might be blocking our request. Skipping to next song...`,
-              };
-            }
-          }
-        } catch (finalError) {
-          console.error(`Final fallback error: ${finalError.message}`);
-        }
-
-        // Skip to the next song
-        setTimeout(() => playNext(guildId), 1000);
-
-        return {
-          success: false,
-          message: `Couldn't play ${nextSong.title} due to YouTube API restrictions. Skipping to next song...`,
-        };
+        // Use our fallback player as a last resort
+        console.log("Using fallback player as last resort");
+        return await fallbackPlayer.playWithFallback(player, nextSong);
       }
     }
   } catch (error) {
     console.error(`Error in playNext: ${error.message}`);
+
+    // Try to use the fallback player as a last resort
+    try {
+      const player = players.get(guildId);
+      const nextSong = nowPlaying.get(guildId);
+
+      if (player && nextSong) {
+        console.log("Attempting to use fallback player after error");
+        return await fallbackPlayer.playWithFallback(player, nextSong);
+      }
+    } catch (fallbackError) {
+      console.error(`Fallback player error: ${fallbackError.message}`);
+    }
 
     // Try to play the next song in the queue
     const queue = queues.get(guildId);
@@ -603,7 +581,10 @@ async function playNext(guildId) {
       setTimeout(() => playNext(guildId), 1000);
     }
 
-    return { success: false, message: `Error: ${error.message}` };
+    return {
+      success: false,
+      message: `⚠️ YouTube playback is currently experiencing issues. We're working on a fix. Error: ${error.message}`,
+    };
   }
 }
 

@@ -262,18 +262,26 @@ If you encounter issues with the music player, try the following:
    - Try using a different YouTube URL
    - Use a direct YouTube URL instead of a search query
    - Check if the video is age-restricted or region-locked
+   - Be aware that YouTube actively works to prevent bots from playing music, so functionality may be limited
 
-2. **Voice Connection Issues**:
+2. **Fallback Player**: The bot includes a fallback player that will attempt to play a silent audio stream when YouTube API restrictions prevent normal playback. When this happens, you'll see a message like:
+   ```
+   ⚠️ YouTube playback is currently experiencing issues. We're working on a fix.
+   ```
+
+3. **Voice Connection Issues**:
    - Make sure the bot has the "Connect" and "Speak" permissions in the voice channel
    - Try having the bot leave and rejoin the voice channel
    - Check if your Discord server region is compatible with the bot's hosting region
 
-3. **Package Dependencies**: If you're hosting the bot yourself, make sure you have the latest versions of the required packages:
+4. **Package Dependencies**: If you're hosting the bot yourself, make sure you have the latest versions of the required packages:
    ```bash
    npm install @discordjs/voice@latest ytdl-core@latest play-dl@latest ffmpeg-static@latest libsodium-wrappers@latest opusscript@latest
    ```
 
-4. **Error Messages**: Check the bot's console logs for more detailed error messages that can help diagnose the issue.
+5. **Error Messages**: Check the bot's console logs for more detailed error messages that can help diagnose the issue.
+
+6. **Alternative Solutions**: If you need reliable music playback, consider using a dedicated music bot service that has licensing agreements with YouTube or other music providers.
 
 ## License
 
