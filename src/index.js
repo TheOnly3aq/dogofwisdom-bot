@@ -24,6 +24,8 @@ const config = {
   dailyMessagesEnabled: true, // Default: daily messages are enabled
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
   ownerDMsEnabled: true, // Default: DMs to server owner are enabled
+  autoRoleEnabled: true, // Default: autorole is enabled
+  autoRoleId: process.env.AUTO_ROLE_ID || "", // Role ID to assign to new members
   adminRoleId: process.env.ADMIN_ROLE_ID || "1376665402758926487", // Role ID that can control bot features
   botOwnerId: process.env.BOT_OWNER_ID || "", // User ID of the bot owner who can use commands in DMs
   adminUserId: process.env.ADMIN_USER_ID || "", // Additional user ID that can use admin commands
@@ -68,6 +70,13 @@ const commands = [
   new SlashCommandBuilder()
     .setName("toggleownerdms")
     .setDescription("Toggle DM notifications to server owners on/off")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
+    .toJSON(),
+
+  // Toggle autorole command (admin only)
+  new SlashCommandBuilder()
+    .setName("toggleautorole")
+    .setDescription("Toggle automatic role assignment for new members on/off")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) // Only show to admins in UI
     .toJSON(),
 
@@ -211,6 +220,93 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+// Handle new members joining a server
+client.on("guildMemberAdd", async (member) => {
+  try {
+    // Check if autorole is enabled
+    if (!config.autoRoleEnabled) {
+      console.log(
+        `Autorole is disabled. Skipping role assignment for ${member.user.tag}.`
+      );
+      return;
+    }
+
+    // Check if the autorole ID is configured
+    if (!config.autoRoleId) {
+      console.log(
+        `Autorole ID is not configured. Skipping role assignment for ${member.user.tag}.`
+      );
+      return;
+    }
+
+    // Get the role from the guild
+    const role = member.guild.roles.cache.get(config.autoRoleId);
+
+    // Check if the role exists
+    if (!role) {
+      console.error(
+        `Role with ID ${config.autoRoleId} not found in guild ${member.guild.name}.`
+      );
+      logMessage(
+        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Role with ID ${config.autoRoleId} not found.`,
+        "error"
+      );
+      return;
+    }
+
+    // Check if the bot has permissions to assign roles
+    if (!member.guild.members.me.permissions.has("ManageRoles")) {
+      console.error(
+        `Bot doesn't have 'Manage Roles' permission in guild ${member.guild.name}.`
+      );
+      logMessage(
+        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Missing 'Manage Roles' permission.`,
+        "error"
+      );
+      return;
+    }
+
+    // Check if the bot's highest role is higher than the role to assign
+    if (member.guild.members.me.roles.highest.position <= role.position) {
+      console.error(
+        `Bot's highest role is not high enough to assign role ${role.name} in guild ${member.guild.name}.`
+      );
+      logMessage(
+        `Failed to assign autorole to ${member.user.tag} in ${member.guild.name}: Bot's highest role is not high enough.`,
+        "error"
+      );
+      return;
+    }
+
+    // Assign the role to the member
+    await member.roles.add(role);
+
+    console.log(
+      `Assigned role ${role.name} to new member ${member.user.tag} in ${member.guild.name}.`
+    );
+
+    // Log the role assignment
+    logMessage(
+      `Assigned role ${role.name} to new member ${member.user.tag} in ${member.guild.name}.`,
+      "autorole",
+      {
+        User: `${member.user.tag} (${member.user.id})`,
+        Guild: member.guild.name,
+        Role: `${role.name} (${role.id})`,
+      }
+    );
+  } catch (error) {
+    console.error(
+      `Error assigning role to new member ${member.user.tag}:`,
+      error
+    );
+    logMessage(
+      `Error assigning role to new member ${member.user.tag} in ${member.guild.name}: ${error.message}`,
+      "error"
+    );
+  }
+});
+
 // Log when the bot is ready
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
@@ -247,6 +343,14 @@ client.once("ready", async () => {
   );
   logMessage(
     `Log channel ID set to: ${config.logChannelId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Auto role ID set to: ${config.autoRoleId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Auto role is ${config.autoRoleEnabled ? "enabled" : "disabled"}`,
     "startup"
   );
 
@@ -878,6 +982,30 @@ client.on("interactionCreate", async (interaction) => {
       // Log the change
       console.log(
         `Server owner DM notifications ${status} by ${interaction.user.tag}`
+      );
+    } else if (commandName === "toggleautorole") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true, // Only visible to the command user
+        });
+      }
+
+      // Toggle the autorole state
+      config.autoRoleEnabled = !config.autoRoleEnabled;
+
+      // Send confirmation message
+      const status = config.autoRoleEnabled ? "enabled" : "disabled";
+      await interaction.reply(
+        `✅ Automatic role assignment for new members has been **${status}**!`
+      );
+
+      // Log the change
+      console.log(
+        `Automatic role assignment ${status} by ${interaction.user.tag}`
       );
     }
 
