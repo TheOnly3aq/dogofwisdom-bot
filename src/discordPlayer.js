@@ -1,6 +1,7 @@
 const { Player } = require('discord-player');
 const { GuildQueue } = require('discord-player');
 const { QueryType } = require('discord-player');
+const { YouTubeExtractor } = require("@discord-player/extractor");
 
 /**
  * Initialize the Discord Player
@@ -8,16 +9,16 @@ const { QueryType } = require('discord-player');
  * @returns {Player} - The initialized player
  */
 async function initializePlayer(client) {
-    // Create a new Player instance
-    const player = new Player(client);
-    
-    // Add event listeners
-    setupPlayerEvents(player);
-    
-    // Initialize the player
-    await player.extractors.loadDefault();
-    
-    return player;
+  // Create a new Player instance
+  const player = new Player(client);
+
+  // Add event listeners
+  setupPlayerEvents(player);
+
+  // Initialize the player with YouTube extractor
+  await player.extractors.register(YouTubeExtractor, {});
+
+  return player;
 }
 
 /**
