@@ -10,19 +10,6 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
-// Import both music player implementations
-const {
-  joinChannel,
-  leaveChannel,
-  playYouTube,
-  skipSong,
-  pausePlayback,
-  resumePlayback,
-  getQueue,
-} = require("./musicPlayer");
-
-// Import the new discord-player handler
-const discordPlayer = require("./discordPlayerHandler");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -51,7 +38,6 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
 });
@@ -131,48 +117,6 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 
-  // Music commands
-  new SlashCommandBuilder()
-    .setName("play")
-    .setDescription("Play a YouTube video")
-    .addStringOption((option) =>
-      option
-        .setName("url")
-        .setDescription("The YouTube URL to play")
-        .setRequired(true)
-    )
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("skip")
-    .setDescription("Skip the current song")
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("queue")
-    .setDescription("Show the current music queue")
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("join")
-    .setDescription("Join your voice channel")
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("leave")
-    .setDescription("Leave the voice channel")
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("pause")
-    .setDescription("Pause the current song")
-    .toJSON(),
-
-  new SlashCommandBuilder()
-    .setName("resume")
-    .setDescription("Resume the paused song")
-    .toJSON(),
-    
   new SlashCommandBuilder()
     .setName("help")
     .setDescription("Show the help message with all available commands")
@@ -1465,124 +1409,6 @@ client.on("interactionCreate", async (interaction) => {
           ephemeral: true,
         });
       }
-    }
-
-    // Music commands
-    else if (commandName === "play") {
-      // Get the URL from the options
-      const url = interaction.options.getString("url");
-
-      // Defer the reply to give time for processing
-      await interaction.deferReply();
-
-      // Try to play the YouTube video with the new discord-player first
-      let result;
-      try {
-        if (global.player) {
-          // Use the new discord-player handler
-          result = await discordPlayer.playSong(
-            interaction,
-            global.player,
-            url
-          );
-        } else {
-          // Fall back to the old player if discord-player isn't initialized
-          result = await playYouTube(interaction, url);
-        }
-      } catch (error) {
-        console.error("Error playing song with discord-player:", error);
-        // Fall back to the old player if discord-player fails
-        result = await playYouTube(interaction, url);
-      }
-
-      // Send the result
-      if (result.success) {
-        await interaction.editReply(result.message);
-      } else {
-        await interaction.editReply(`❌ ${result.message}`);
-      }
-    } else if (commandName === "skip") {
-      // Skip the current song
-      let result;
-      try {
-        if (global.player) {
-          // Use the new discord-player handler
-          result = await discordPlayer.skipSong(interaction);
-        } else {
-          // Fall back to the old player
-          result = skipSong(interaction.guild.id);
-        }
-      } catch (error) {
-        console.error("Error skipping song with discord-player:", error);
-        // Fall back to the old player
-        result = skipSong(interaction.guild.id);
-      }
-
-      await interaction.reply(
-        result.success ? result.message : `❌ ${result.message}`
-      );
-    } else if (commandName === "queue") {
-      // Get the queue
-      let result;
-      try {
-        if (global.player) {
-          // Use the new discord-player handler
-          result = await discordPlayer.getQueue(interaction);
-        } else {
-          // Fall back to the old player
-          result = getQueue(interaction.guild.id);
-        }
-      } catch (error) {
-        console.error("Error getting queue with discord-player:", error);
-        // Fall back to the old player
-        result = getQueue(interaction.guild.id);
-      }
-
-      if (!result.success) {
-        return interaction.reply(`❌ ${result.message}`);
-      }
-
-      // Format the queue
-      let queueMessage = "";
-
-      if (result.current) {
-        queueMessage += `🎵 **Now Playing:** ${result.current.title}\n\n`;
-      }
-
-      if (result.queue.length) {
-        queueMessage += "**Queue:**\n";
-        result.queue.forEach((song, index) => {
-          queueMessage += `${index + 1}. ${song.title}\n`;
-        });
-      } else {
-        queueMessage += "**Queue is empty**";
-      }
-
-      await interaction.reply(queueMessage);
-    } else if (commandName === "join") {
-      // Join the voice channel
-      const result = await joinChannel(interaction);
-      await interaction.reply(
-        result.success ? result.message : `❌ ${result.message}`
-      );
-    } else if (commandName === "leave") {
-      // Leave the voice channel
-      const result = leaveChannel(interaction.guild.id);
-      await interaction.reply(
-        result.success ? result.message : `❌ ${result.message}`
-      );
-    } else if (commandName === "pause") {
-      // Pause the current song
-      const result = pausePlayback(interaction.guild.id);
-      await interaction.reply(
-        result.success ? result.message : `❌ ${result.message}`
-      );
-    } else if (commandName === "resume") {
-      // Resume the paused song
-      const result = resumePlayback(interaction.guild.id);
-      await interaction.reply(
-        result.success ? result.message : `❌ ${result.message}`
-      );
     } else if (commandName === "help") {
       // Send help message
       const helpEmbed = {
