@@ -1,4 +1,15 @@
-const ytdl = require('ytdl-core');
+/**
+ * Music Player for Discord Bot
+ *
+ * A simple music player with basic functionality:
+ * - Join/leave voice channels
+ * - Play YouTube videos
+ * - Skip songs
+ * - Queue management
+ * - Pause/resume playback
+ */
+
+const ytdl = require("ytdl-core");
 const play = require("play-dl");
 const {
   createAudioPlayer,
@@ -9,46 +20,13 @@ const {
   entersState,
   NoSubscriberBehavior,
 } = require("@discordjs/voice");
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
 const libsodium = require("libsodium-wrappers");
 
 // Initialize libsodium
 (async () => {
   await libsodium.ready;
-  console.log("libsodium initialized successfully");
+  console.log("Libsodium initialized successfully");
 })();
-
-// Configure play-dl with more robust settings
-play.setToken({
-  useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-});
-
-// YouTube has been making changes to their API, so we need to keep our libraries updated
-console.log(`Using ytdl-core version: ${ytdl.version}`);
-console.log(`Using play-dl version: ${play.playDlVersion}`);
-
-// Set up a function to check for updates to these libraries
-async function checkForUpdates() {
-  try {
-    console.log("Checking for updates to YouTube libraries...");
-    const { stdout } = await execAsync('npm outdated ytdl-core play-dl');
-    if (stdout.includes('ytdl-core') || stdout.includes('play-dl')) {
-      console.log("Updates available for YouTube libraries. Consider updating with: npm update ytdl-core play-dl");
-    }
-  } catch (error) {
-    // If the command exits with code 1, it means there are outdated packages
-    if (error.code === 1 && error.stdout) {
-      console.log("Updates available for YouTube libraries. Consider updating with: npm update ytdl-core play-dl");
-    } else {
-      console.error("Error checking for updates:", error.message);
-    }
-  }
-}
-
-// Check for updates when the module is loaded
-checkForUpdates();
 
 // Store active connections and players for each guild
 const connections = new Map();
@@ -56,25 +34,18 @@ const players = new Map();
 const queues = new Map();
 const nowPlaying = new Map();
 
-// Function to join a voice channel
+/**
+ * Join a voice channel
+ * @param {Object} context - Message or Interaction object
+ * @returns {Object} Result object with success status and message
+ */
 async function joinChannel(context) {
   try {
-    console.log("=== JOIN CHANNEL FUNCTION STARTED ===");
-    console.log(`Context type: ${typeof context}`);
-    console.log(`Context keys: ${Object.keys(context).join(", ")}`);
-
     // Ensure libsodium is ready
-    console.log("Waiting for libsodium to be ready...");
     await libsodium.ready;
-    console.log("libsodium is ready");
-
-    // Check if context is a message or interaction
-    const isInteraction = context.commandName !== undefined;
-    console.log(`Is interaction: ${isInteraction}`);
 
     // Validate context has required properties
     if (!context.member) {
-      console.error("Error: context.member is undefined");
       return {
         success: false,
         message: "Invalid context: member not found",
@@ -82,188 +53,95 @@ async function joinChannel(context) {
     }
 
     if (!context.guild) {
-      console.error("Error: context.guild is undefined");
       return {
         success: false,
         message: "Invalid context: guild not found",
       };
     }
 
-    console.log(`Guild ID: ${context.guild.id}`);
-    console.log(`Member ID: ${context.member.id}`);
-
     // Check if user is in a voice channel
-    if (!context.member.voice) {
-      console.error("Error: context.member.voice is undefined");
-      return {
-        success: false,
-        message: "Cannot access voice state. Please try again.",
-      };
-    }
-
     const voiceChannel = context.member.voice.channel;
     if (!voiceChannel) {
-      console.log("User is not in a voice channel");
       return {
         success: false,
         message: "You need to be in a voice channel first!",
       };
     }
 
-    console.log(
-      `Voice channel ID: ${voiceChannel.id}, Name: ${voiceChannel.name}`
-    );
-
     // Validate voice adapter creator
     if (!context.guild.voiceAdapterCreator) {
-      console.error("Error: voiceAdapterCreator is undefined");
       return {
         success: false,
         message: "Voice adapter creator not found. This is a Discord.js issue.",
       };
     }
 
-    console.log("Creating voice connection...");
-
     // Create a connection to the voice channel
-    let connection;
-    try {
-      connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: context.guild.id,
-        adapterCreator: context.guild.voiceAdapterCreator,
-        selfDeaf: true, // Bot deafens itself to save bandwidth
-        selfMute: false, // Bot needs to be able to speak
-      });
-
-      console.log("Voice connection created");
-      console.log(`Connection state: ${connection.state.status}`);
-    } catch (connectionError) {
-      console.error("Error creating voice connection:", connectionError);
-      return {
-        success: false,
-        message: `Failed to connect to voice channel: ${connectionError.message}`,
-      };
-    }
-
-    // Log when connection state changes
-    connection.on(VoiceConnectionStatus.Ready, () => {
-      console.log("Voice Connection is Ready!");
-    });
-
-    connection.on(VoiceConnectionStatus.Connecting, () => {
-      console.log("Voice Connection is Connecting...");
-    });
-
-    connection.on(VoiceConnectionStatus.Signalling, () => {
-      console.log("Voice Connection is Signalling...");
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: context.guild.id,
+      adapterCreator: context.guild.voiceAdapterCreator,
+      selfDeaf: true, // Bot deafens itself to save bandwidth
+      selfMute: false, // Bot needs to be able to speak
     });
 
     // Create an audio player
-    console.log("Creating audio player...");
     const player = createAudioPlayer({
       behaviors: {
         noSubscriber: NoSubscriberBehavior.Pause,
       },
     });
-    console.log("Audio player created");
 
     // Subscribe the connection to the audio player
-    console.log("Subscribing connection to player...");
     const subscription = connection.subscribe(player);
     if (!subscription) {
-      console.error("Failed to subscribe connection to player");
       connection.destroy();
       return {
         success: false,
         message: "Failed to set up voice connection. Please try again.",
       };
     }
-    console.log("Connection subscribed to player successfully");
 
     // Store the connection and player
     connections.set(context.guild.id, connection);
     players.set(context.guild.id, player);
-    console.log(`Stored connection and player for guild ${context.guild.id}`);
 
     // Initialize queue for this guild if it doesn't exist
     if (!queues.has(context.guild.id)) {
       queues.set(context.guild.id, []);
-      console.log(`Initialized empty queue for guild ${context.guild.id}`);
     }
 
     // Set up event listeners for the connection
     connection.on(VoiceConnectionStatus.Disconnected, async () => {
-      console.log("Voice Connection Disconnected");
       try {
-        console.log("Attempting to reconnect...");
+        // Try to reconnect
         await Promise.race([
           entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
           entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
         ]);
-        console.log("Reconnection in progress - ignoring disconnect");
-        // Seems to be reconnecting to a new channel - ignore disconnect
+        // Reconnection in progress - ignore disconnect
       } catch (error) {
-        console.log("Reconnection failed - destroying connection");
-        // Seems to be a real disconnect which SHOULDN'T be recovered from
+        // Seems to be a real disconnect which shouldn't be recovered from
         connection.destroy();
         cleanup(context.guild.id);
-        console.log(`Cleaned up resources for guild ${context.guild.id}`);
       }
     });
 
     // Set up event listeners for the player
     player.on(AudioPlayerStatus.Idle, () => {
-      console.log("Player is now Idle, playing next song");
       // When the current song ends, play the next one in queue
       playNext(context.guild.id);
     });
 
-    player.on(AudioPlayerStatus.Playing, () => {
-      console.log("Player is now Playing");
-    });
-
-    player.on(AudioPlayerStatus.Paused, () => {
-      console.log("Player is now Paused");
-    });
-
-    player.on(AudioPlayerStatus.AutoPaused, () => {
-      console.log("Player is now AutoPaused");
-    });
-
-    // Handle buffering state
-    player.on("stateChange", (oldState, newState) => {
-      if (newState.status === "buffering") {
-        console.log("Player is now Buffering");
-
-        // Set a timeout to check if player is still buffering after 10 seconds
-        setTimeout(() => {
-          if (player.state.status === "buffering") {
-            console.log(
-              "Player still buffering after 10 seconds, resetting..."
-            );
-            player.stop();
-            console.log("Player has been reset from buffering state");
-            playNext(context.guild.id);
-          }
-        }, 10000);
-      }
-    });
-
     player.on("error", (error) => {
       console.error(`Player error: ${error.message}`);
-      console.error(error.stack);
-      console.log("Attempting to play next song after error");
+      // Attempt to play next song after error
       playNext(context.guild.id);
     });
 
-    console.log("=== JOIN CHANNEL FUNCTION COMPLETED SUCCESSFULLY ===");
     return { success: true, message: `Joined ${voiceChannel.name}!` };
   } catch (error) {
-    console.error("=== ERROR IN JOIN CHANNEL FUNCTION ===");
-    console.error(`Error type: ${error.name}`);
-    console.error(`Error message: ${error.message}`);
-    console.error(`Error stack: ${error.stack}`);
+    console.error(`Error joining voice channel: ${error.message}`);
     return {
       success: false,
       message: `Error joining voice channel: ${error.message}`,
@@ -271,7 +149,11 @@ async function joinChannel(context) {
   }
 }
 
-// Function to leave a voice channel
+/**
+ * Leave a voice channel
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status and message
+ */
 function leaveChannel(guildId) {
   try {
     const connection = connections.get(guildId);
@@ -283,389 +165,147 @@ function leaveChannel(guildId) {
       return { success: false, message: "I'm not in a voice channel!" };
     }
   } catch (error) {
-    console.error("Error leaving voice channel:", error);
+    console.error(`Error leaving voice channel: ${error.message}`);
     return { success: false, message: `Error: ${error.message}` };
   }
 }
 
-// Function to play a YouTube video
+/**
+ * Play a YouTube video
+ * @param {Object} context - Message or Interaction object
+ * @param {string} url - YouTube URL or search query
+ * @returns {Object} Result object with success status and message
+ */
 async function playYouTube(context, url) {
   try {
-    console.log("=== PLAY YOUTUBE FUNCTION STARTED ===");
-    console.log(`Received request to play: ${url}`);
-    console.log(`Context type: ${typeof context}`);
-
     // Validate context
-    if (!context) {
-      console.error("Error: context is undefined");
+    if (!context || !context.guild) {
       return {
         success: false,
-        message: "Invalid context: context is undefined",
+        message: "Invalid context",
       };
     }
 
-    if (!context.guild) {
-      console.error("Error: context.guild is undefined");
-      return { success: false, message: "Invalid context: guild not found" };
-    }
-
-    console.log(`Guild ID: ${context.guild.id}`);
-
-    // Try to extract video ID first for better validation
-    let videoId;
-    try {
-      console.log("Attempting to extract video ID...");
-      videoId = ytdl.getVideoID(url);
-      console.log(`Extracted video ID: ${videoId}`);
-      // Normalize URL to standard format
-      url = `https://www.youtube.com/watch?v=${videoId}`;
-      console.log(`Normalized URL: ${url}`);
-    } catch (idError) {
-      console.error("Error extracting video ID:", idError.message);
-      console.log("Will continue with original URL and validate below");
-      // Continue with original URL, will validate below
-    }
-
-    // Check if the URL is valid using both libraries for better reliability
-    console.log("Validating URL with both libraries...");
-    let isValidYtdl = false;
-    let isValidPlayDl = false;
-
-    try {
-      isValidYtdl = ytdl.validateURL(url);
-      console.log(`ytdl-core validation result: ${isValidYtdl}`);
-    } catch (ytdlValidateError) {
-      console.error(
-        "Error during ytdl-core validation:",
-        ytdlValidateError.message
-      );
-    }
-
-    try {
-      isValidPlayDl = play.yt_validate(url);
-      console.log(`play-dl validation result: ${isValidPlayDl}`);
-    } catch (playDlValidateError) {
-      console.error(
-        "Error during play-dl validation:",
-        playDlValidateError.message
-      );
-    }
-
-    if (!isValidYtdl && !isValidPlayDl) {
-      console.error(
-        `Invalid YouTube URL: ${url} (ytdl: ${isValidYtdl}, play-dl: ${isValidPlayDl})`
-      );
-      return { success: false, message: "Please provide a valid YouTube URL!" };
-    }
-
-    console.log(`URL validation passed: ${url}`);
-
-    // Get the guild ID
     const guildId = context.guild.id;
-    console.log(`Using guild ID: ${guildId}`);
 
     // Check if the bot is in a voice channel
-    console.log(`Checking if bot is in voice channel for guild ${guildId}`);
-    console.log(
-      `Current connections: ${Array.from(connections.keys()).join(", ")}`
-    );
-
     if (!connections.has(guildId)) {
-      console.log("Bot not in voice channel, attempting to join...");
-
       // Check if user is in a voice channel
-      if (!context.member) {
-        console.error("Error: context.member is undefined");
-        return {
-          success: false,
-          message: "Cannot join voice channel: member not found",
-        };
-      }
-
-      if (!context.member.voice) {
-        console.error("Error: context.member.voice is undefined");
-        return {
-          success: false,
-          message: "Cannot join voice channel: voice state not found",
-        };
-      }
-
-      if (!context.member.voice.channel) {
-        console.log("User is not in a voice channel");
+      if (
+        !context.member ||
+        !context.member.voice ||
+        !context.member.voice.channel
+      ) {
         return {
           success: false,
           message: "You need to be in a voice channel first!",
         };
       }
 
-      console.log(
-        `User is in voice channel: ${context.member.voice.channel.name} (${context.member.voice.channel.id})`
-      );
-
+      // Join the voice channel
       const joinResult = await joinChannel(context);
-      console.log(`Join channel result: ${JSON.stringify(joinResult)}`);
-
       if (!joinResult.success) {
-        console.error("Failed to join voice channel:", joinResult.message);
         return joinResult;
       }
-      console.log("Successfully joined voice channel");
-    } else {
-      console.log(`Bot is already in a voice channel for guild ${guildId}`);
     }
 
-    // First try: Get video info using play-dl
-    try {
-      console.log("Attempting to get video info using play-dl...");
-      const videoInfo = await play.video_info(url);
-      console.log("play-dl video_info call succeeded");
+    // Try to get video info
+    let videoInfo;
+    let isSearch = false;
 
-      if (!videoInfo) {
-        console.error("Error: videoInfo is undefined");
-        throw new Error("Failed to get video info: result is undefined");
+    // Check if the input is a URL or a search query
+    if (ytdl.validateURL(url)) {
+      // It's a valid YouTube URL
+      try {
+        videoInfo = await play.video_info(url);
+      } catch (error) {
+        try {
+          // Fallback to ytdl-core
+          const ytdlInfo = await ytdl.getInfo(url);
+          videoInfo = {
+            video_details: {
+              title: ytdlInfo.videoDetails.title,
+              url: ytdlInfo.videoDetails.video_url,
+              thumbnail: {
+                url: ytdlInfo.videoDetails.thumbnails[0]?.url || "",
+              },
+              durationInSec: parseInt(ytdlInfo.videoDetails.lengthSeconds) || 0,
+            },
+          };
+        } catch (ytdlError) {
+          return {
+            success: false,
+            message: "Failed to get video information. Please try another URL.",
+          };
+        }
       }
-
-      if (!videoInfo.video_details) {
-        console.error("Error: videoInfo.video_details is undefined");
-        throw new Error(
-          "Failed to get video details: video_details is undefined"
-        );
-      }
-
-      const videoTitle = videoInfo.video_details.title;
-      const durationInSec = videoInfo.video_details.durationInSec;
-
-      // Log video details for debugging
-      console.log(
-        `Video info retrieved: ${videoTitle} (Duration: ${durationInSec}s)`
-      );
-
-      // Add special flag for very short videos
-      const isShortVideo = durationInSec < 60; // Less than 1 minute
-      if (isShortVideo) {
-        console.log("This is a short video, will use special handling");
-      }
-
-      // Add to queue
-      console.log(`Getting queue for guild ${guildId}`);
-      const queue = queues.get(guildId);
-      if (!queue) {
-        console.error(`Error: queue for guild ${guildId} is undefined`);
-        queues.set(guildId, []);
-        console.log(`Created new queue for guild ${guildId}`);
-      }
-
-      const queueItem = {
-        url,
-        title: videoTitle,
-        isShortVideo,
-        videoId,
-      };
-
-      queue.push(queueItem);
-      console.log(`Added to queue: ${videoTitle}`);
-      console.log(`Queue length: ${queue.length}`);
-
-      // If nothing is playing, start playing
-      console.log(`Getting player for guild ${guildId}`);
-      const player = players.get(guildId);
-      if (!player) {
-        console.error(`Error: player for guild ${guildId} is undefined`);
+    } else {
+      // Treat it as a search query
+      isSearch = true;
+      try {
+        const searchResults = await play.search(url, { limit: 1 });
+        if (searchResults && searchResults.length > 0) {
+          videoInfo = await play.video_info(searchResults[0].url);
+        } else {
+          return {
+            success: false,
+            message: "No search results found. Please try a different query.",
+          };
+        }
+      } catch (searchError) {
         return {
           success: false,
-          message: "Audio player not found. Please try again.",
+          message: "Failed to search for videos. Please try again.",
         };
-      }
-
-      console.log(`Player state: ${player.state.status}`);
-
-      if (
-        player.state.status === AudioPlayerStatus.Idle ||
-        player.state.status === "buffering"
-      ) {
-        console.log(
-          "Player is idle or buffering, starting playback immediately"
-        );
-        return await playNext(guildId);
-      } else {
-        console.log(
-          `Player is busy (${player.state.status}), added to queue at position ${queue.length}`
-        );
-        return {
-          success: true,
-          message: `Added to queue: ${videoTitle}`,
-          position: queue.length,
-        };
-      }
-    } catch (playDlError) {
-      console.error(
-        "Error getting video info with play-dl:",
-        playDlError.message
-      );
-      console.error(playDlError.stack);
-
-      // Second try: Fallback to ytdl-core for getting info
-      try {
-        console.log("Falling back to ytdl-core for video info...");
-        const ytdlInfo = await ytdl.getInfo(url);
-        console.log("ytdl-core getInfo call succeeded");
-
-        if (!ytdlInfo) {
-          console.error("Error: ytdlInfo is undefined");
-          throw new Error("Failed to get video info: result is undefined");
-        }
-
-        if (!ytdlInfo.videoDetails) {
-          console.error("Error: ytdlInfo.videoDetails is undefined");
-          throw new Error(
-            "Failed to get video details: videoDetails is undefined"
-          );
-        }
-
-        const videoTitle = ytdlInfo.videoDetails.title;
-        const durationInSec = parseInt(ytdlInfo.videoDetails.lengthSeconds);
-        const isShortVideo = durationInSec < 60; // Less than 1 minute
-
-        console.log(
-          `Fallback video info retrieved: ${videoTitle} (Duration: ${durationInSec}s)`
-        );
-
-        // Add to queue
-        console.log(`Getting queue for guild ${guildId}`);
-        const queue = queues.get(guildId);
-        if (!queue) {
-          console.error(`Error: queue for guild ${guildId} is undefined`);
-          queues.set(guildId, []);
-          console.log(`Created new queue for guild ${guildId}`);
-        }
-
-        const queueItem = {
-          url,
-          title: videoTitle,
-          isShortVideo,
-          videoId,
-        };
-
-        queue.push(queueItem);
-        console.log(`Added to queue using fallback: ${videoTitle}`);
-        console.log(`Queue length: ${queue.length}`);
-
-        // If nothing is playing, start playing
-        console.log(`Getting player for guild ${guildId}`);
-        const player = players.get(guildId);
-        if (!player) {
-          console.error(`Error: player for guild ${guildId} is undefined`);
-          return {
-            success: false,
-            message: "Audio player not found. Please try again.",
-          };
-        }
-
-        console.log(`Player state: ${player.state.status}`);
-
-        if (
-          player.state.status === AudioPlayerStatus.Idle ||
-          player.state.status === "buffering"
-        ) {
-          console.log(
-            "Player is idle or buffering, starting playback immediately (fallback)"
-          );
-          return await playNext(guildId);
-        } else {
-          console.log(
-            `Player is busy (${player.state.status}), added to queue at position ${queue.length} (fallback)`
-          );
-          return {
-            success: true,
-            message: `Added to queue: ${videoTitle} (using fallback)`,
-            position: queue.length,
-          };
-        }
-      } catch (ytdlError) {
-        console.error("Fallback info retrieval failed:", ytdlError.message);
-        console.error(ytdlError.stack);
-
-        // Last resort: Use the video ID as the title
-        if (!videoId) {
-          try {
-            console.log("Final attempt to extract video ID...");
-            videoId = ytdl.getVideoID(url);
-            console.log(`Extracted video ID in last resort: ${videoId}`);
-          } catch (finalIdError) {
-            console.error(
-              "Final attempt to extract video ID failed:",
-              finalIdError.message
-            );
-            console.error(finalIdError.stack);
-            return {
-              success: false,
-              message:
-                "Could not process this YouTube URL. Please try a different video.",
-            };
-          }
-        }
-
-        const simplifiedTitle = `YouTube Video (${videoId})`;
-        console.log(`Using simplified title for video: ${simplifiedTitle}`);
-
-        // Add to queue with simplified title
-        console.log(`Getting queue for guild ${guildId}`);
-        const queue = queues.get(guildId);
-        if (!queue) {
-          console.error(`Error: queue for guild ${guildId} is undefined`);
-          queues.set(guildId, []);
-          console.log(`Created new queue for guild ${guildId}`);
-        }
-
-        const queueItem = {
-          url,
-          title: simplifiedTitle,
-          isShortVideo: true, // Assume it's a short video for special handling
-          videoId,
-        };
-
-        queue.push(queueItem);
-        console.log(`Added to queue using last resort: ${simplifiedTitle}`);
-        console.log(`Queue length: ${queue.length}`);
-
-        // If nothing is playing, start playing
-        console.log(`Getting player for guild ${guildId}`);
-        const player = players.get(guildId);
-        if (!player) {
-          console.error(`Error: player for guild ${guildId} is undefined`);
-          return {
-            success: false,
-            message: "Audio player not found. Please try again.",
-          };
-        }
-
-        console.log(`Player state: ${player.state.status}`);
-
-        if (
-          player.state.status === AudioPlayerStatus.Idle ||
-          player.state.status === "buffering"
-        ) {
-          console.log(
-            "Player is idle or buffering, starting playback immediately (last resort)"
-          );
-          return await playNext(guildId);
-        } else {
-          console.log(
-            `Player is busy (${player.state.status}), added to queue at position ${queue.length} (last resort)`
-          );
-          return {
-            success: true,
-            message: `Added to queue: ${simplifiedTitle}`,
-            position: queue.length,
-          };
-        }
       }
     }
+
+    // Extract video details
+    const videoDetails = videoInfo.video_details;
+
+    // Create a song object
+    const song = {
+      title: videoDetails.title,
+      url: videoDetails.url,
+      thumbnail: videoDetails.thumbnail.url,
+      duration: videoDetails.durationInSec,
+      requestedBy: context.member.user.tag,
+    };
+
+    // Get the queue for this guild
+    let queue = queues.get(guildId);
+    if (!queue) {
+      queue = [];
+      queues.set(guildId, queue);
+    }
+
+    // Add the song to the queue
+    queue.push(song);
+
+    // Get the player for this guild
+    const player = players.get(guildId);
+    if (!player) {
+      return {
+        success: false,
+        message: "Audio player not found. Please try again.",
+      };
+    }
+
+    // Check if the player is idle (not playing anything)
+    if (player.state.status === AudioPlayerStatus.Idle) {
+      // Start playing immediately
+      return await playNext(guildId);
+    } else {
+      // Add to queue
+      return {
+        success: true,
+        message: `Added ${isSearch ? "search result" : ""} **${
+          song.title
+        }** to the queue at position ${queue.length}`,
+      };
+    }
   } catch (error) {
-    console.error("=== ERROR IN PLAY YOUTUBE FUNCTION ===");
-    console.error(`Error type: ${error.name}`);
-    console.error(`Error message: ${error.message}`);
-    console.error(`Error stack: ${error.stack}`);
+    console.error(`Error playing YouTube video: ${error.message}`);
     return {
       success: false,
       message: `Error playing YouTube video: ${error.message}`,
@@ -673,546 +313,113 @@ async function playYouTube(context, url) {
   }
 }
 
-// Function to play the next song in the queue
+/**
+ * Play the next song in the queue
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status and message
+ */
 async function playNext(guildId) {
   try {
-    console.log(`=== PLAY NEXT FUNCTION STARTED FOR GUILD ${guildId} ===`);
-
     // Get the queue for this guild
-    console.log(`Getting queue for guild ${guildId}`);
     const queue = queues.get(guildId);
     if (!queue || queue.length === 0) {
-      console.log(`No songs in queue for guild ${guildId}`);
+      // Clear the now playing
       nowPlaying.delete(guildId);
-      return { success: false, message: "No more songs in queue!" };
+      return { success: false, message: "No more songs in the queue!" };
     }
-
-    console.log(`Queue length: ${queue.length}`);
 
     // Get the next song
     const nextSong = queue.shift();
-    console.log(`Next song: ${JSON.stringify(nextSong)}`);
 
-    // Get the player
-    console.log(`Getting player for guild ${guildId}`);
+    // Set the now playing
+    nowPlaying.set(guildId, nextSong);
+
+    // Get the player and connection
     const player = players.get(guildId);
-    if (!player) {
-      console.error(`Error: player for guild ${guildId} is undefined`);
-      return { success: false, message: "No audio player found!" };
-    }
+    const connection = connections.get(guildId);
 
-    console.log(`Player state: ${player.state.status}`);
-
-    // If player is stuck in buffering state, reset it
-    if (player.state.status === "buffering") {
-      console.log("Player is in buffering state, resetting it...");
-      player.stop();
-      console.log("Player has been reset from buffering state");
-    }
-
-    console.log(`Attempting to play: ${nextSong.title} (${nextSong.url})`);
-
-    // Make sure we have a valid video ID
-    let videoId = nextSong.videoId;
-    console.log(`Initial video ID: ${videoId}`);
-
-    if (!videoId) {
-      try {
-        console.log("Extracting video ID...");
-        videoId = ytdl.getVideoID(nextSong.url);
-        console.log(`Extracted video ID: ${videoId}`);
-      } catch (idError) {
-        console.error(`Error extracting video ID: ${idError.message}`);
-        console.error(idError.stack);
-      }
-    }
-
-    // Normalize the URL to ensure best compatibility
-    const normalizedUrl = videoId
-      ? `https://www.youtube.com/watch?v=${videoId}`
-      : nextSong.url;
-    console.log(`Using normalized URL: ${normalizedUrl}`);
-
-    // Try multiple methods to play the song
-    let success = false;
-    let errorMessages = [];
-
-    // Method 1: play-dl with high quality
-    if (!success) {
-      try {
-        console.log(
-          "Method 1: Attempting to play using play-dl with high quality..."
-        );
-
-        const streamOptions = {
-          discordPlayerCompatibility: true,
-          seek: 0,
-          quality: 0, // Highest quality
-        };
-
-        console.log(`Stream options: ${JSON.stringify(streamOptions)}`);
-        console.log("Calling play.stream...");
-
-        const stream = await play.stream(normalizedUrl, streamOptions);
-        console.log("play.stream call succeeded");
-
-        if (!stream) {
-          console.error("Error: stream is undefined");
-          throw new Error("Failed to get stream: result is undefined");
-        }
-
-        if (!stream.stream) {
-          console.error("Error: stream.stream is undefined");
-          throw new Error("Failed to get stream.stream: it is undefined");
-        }
-
-        if (!stream.type) {
-          console.error("Error: stream.type is undefined");
-          throw new Error("Failed to get stream.type: it is undefined");
-        }
-
-        console.log(`Stream type: ${stream.type}`);
-        console.log("Creating audio resource...");
-
-        const resource = createAudioResource(stream.stream, {
-          inputType: stream.type,
-          inlineVolume: true,
-        });
-
-        if (!resource) {
-          console.error("Error: resource is undefined");
-          throw new Error(
-            "Failed to create audio resource: result is undefined"
-          );
-        }
-
-        console.log("Audio resource created");
-
-        if (resource.volume) {
-          console.log("Setting volume to 100%");
-          resource.volume.setVolume(1);
-        } else {
-          console.log(
-            "Warning: resource.volume is undefined, cannot set volume"
-          );
-        }
-
-        console.log("Playing audio resource...");
-        player.play(resource);
-        console.log("Audio resource is now playing");
-
-        nowPlaying.set(guildId, nextSong);
-        console.log(`Set nowPlaying for guild ${guildId}`);
-
-        console.log(
-          `Successfully playing: ${nextSong.title} using play-dl (high quality)`
-        );
-        success = true;
-      } catch (error) {
-        console.error(`Method 1 failed: ${error.message}`);
-        console.error(error.stack);
-        errorMessages.push(`Method 1 (play-dl high quality): ${error.message}`);
-      }
-    }
-
-    // Method 2: play-dl with low quality
-    if (!success) {
-      try {
-        console.log(
-          "Method 2: Attempting to play using play-dl with low quality..."
-        );
-
-        const streamOptions = {
-          discordPlayerCompatibility: true,
-          seek: 0,
-          quality: 2, // Lower quality
-        };
-
-        console.log(`Stream options: ${JSON.stringify(streamOptions)}`);
-        console.log("Calling play.stream with low quality...");
-
-        const stream = await play.stream(normalizedUrl, streamOptions);
-        console.log("play.stream call succeeded");
-
-        if (!stream) {
-          console.error("Error: stream is undefined");
-          throw new Error("Failed to get stream: result is undefined");
-        }
-
-        if (!stream.stream) {
-          console.error("Error: stream.stream is undefined");
-          throw new Error("Failed to get stream.stream: it is undefined");
-        }
-
-        if (!stream.type) {
-          console.error("Error: stream.type is undefined");
-          throw new Error("Failed to get stream.type: it is undefined");
-        }
-
-        console.log(`Stream type: ${stream.type}`);
-        console.log("Creating audio resource...");
-
-        const resource = createAudioResource(stream.stream, {
-          inputType: stream.type,
-          inlineVolume: true,
-        });
-
-        if (!resource) {
-          console.error("Error: resource is undefined");
-          throw new Error(
-            "Failed to create audio resource: result is undefined"
-          );
-        }
-
-        console.log("Audio resource created");
-
-        if (resource.volume) {
-          console.log("Setting volume to 100%");
-          resource.volume.setVolume(1);
-        } else {
-          console.log(
-            "Warning: resource.volume is undefined, cannot set volume"
-          );
-        }
-
-        console.log("Playing audio resource...");
-        player.play(resource);
-        console.log("Audio resource is now playing");
-
-        nowPlaying.set(guildId, nextSong);
-        console.log(`Set nowPlaying for guild ${guildId}`);
-
-        console.log(
-          `Successfully playing: ${nextSong.title} using play-dl (low quality)`
-        );
-        success = true;
-      } catch (error) {
-        console.error(`Method 2 failed: ${error.message}`);
-        console.error(error.stack);
-        errorMessages.push(`Method 2 (play-dl low quality): ${error.message}`);
-      }
-    }
-
-    // Method 3: ytdl-core with specific options for music videos
-    if (!success) {
-      try {
-        console.log(
-          "Method 3: Attempting to play using ytdl-core with music video options..."
-        );
-
-        // Create the stream with optimal options for music videos
-        console.log("Creating ytdl stream...");
-        const ytdlOptions = {
-          filter: "audioonly",
-          quality: "lowestaudio",
-          highWaterMark: 1 << 25, // 32MB buffer
-          dlChunkSize: 0, // Get the entire file as a single chunk
-          requestOptions: {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              Accept:
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-              "Accept-Language": "en-US,en;q=0.9",
-              Referer: "https://www.youtube.com/",
-            },
-          },
-        };
-
-        console.log(`ytdl options: ${JSON.stringify(ytdlOptions)}`);
-        const ytdlStream = ytdl(normalizedUrl, ytdlOptions);
-        console.log("ytdl stream created");
-
-        // Handle stream errors
-        ytdlStream.on("error", (error) => {
-          console.error(`ytdl stream error: ${error.message}`);
-          console.error(error.stack);
-          // Only try to play the next song if we haven't already succeeded
-          if (!success) {
-            console.log("Scheduling next song due to stream error...");
-            setTimeout(() => playNext(guildId), 1000);
-          }
-        });
-
-        // Log when data is received
-        ytdlStream.on("data", (chunk) => {
-          console.log(
-            `Received ${chunk.length} bytes of data from ytdl stream`
-          );
-        });
-
-        // Log when the stream ends
-        ytdlStream.on("end", () => {
-          console.log("ytdl stream ended");
-        });
-
-        // Create the audio resource
-        console.log("Creating audio resource from ytdl stream...");
-        const resource = createAudioResource(ytdlStream, {
-          inlineVolume: true,
-        });
-
-        if (!resource) {
-          console.error("Error: resource is undefined");
-          throw new Error(
-            "Failed to create audio resource: result is undefined"
-          );
-        }
-
-        console.log("Audio resource created");
-
-        if (resource.volume) {
-          console.log("Setting volume to 100%");
-          resource.volume.setVolume(1);
-        } else {
-          console.log(
-            "Warning: resource.volume is undefined, cannot set volume"
-          );
-        }
-
-        console.log("Playing audio resource...");
-        player.play(resource);
-        console.log("Audio resource is now playing");
-
-        nowPlaying.set(guildId, nextSong);
-        console.log(`Set nowPlaying for guild ${guildId}`);
-
-        console.log(`Successfully playing: ${nextSong.title} using ytdl-core`);
-        success = true;
-      } catch (error) {
-        console.error(`Method 3 failed: ${error.message}`);
-        console.error(error.stack);
-        errorMessages.push(`Method 3 (ytdl-core): ${error.message}`);
-      }
-    }
-
-    // Method 4: ytdl-core with different options for music videos
-    if (!success) {
-      try {
-        console.log(
-          "Method 4: Attempting to play using ytdl-core with alternative options..."
-        );
-
-        // Try with a different set of options specifically for music videos
-        console.log("Creating ytdl stream with alternative options...");
-        const ytdlOptions = {
-          filter: (format) => format.hasAudio && !format.hasVideo,
-          highWaterMark: 1 << 25, // 32MB buffer
-          requestOptions: {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-              Accept:
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-              "Accept-Language": "en-US,en;q=0.9",
-              Referer: "https://www.youtube.com/",
-              Cookie:
-                "CONSENT=YES+cb; YSC=DwKYllHNwuw; VISITOR_INFO1_LIVE=7cPyAIGQPrI",
-            },
-          },
-        };
-
-        console.log(`ytdl alternative options: ${JSON.stringify(ytdlOptions)}`);
-        const ytdlStream = ytdl(normalizedUrl, ytdlOptions);
-        console.log("ytdl stream with alternative options created");
-
-        ytdlStream.on("error", (error) => {
-          console.error(`ytdl music stream error: ${error.message}`);
-          console.error(error.stack);
-          // Only try to play the next song if we haven't already succeeded
-          if (!success) {
-            console.log("Scheduling next song due to stream error...");
-            setTimeout(() => playNext(guildId), 1000);
-          }
-        });
-
-        // Log when data is received
-        ytdlStream.on("data", (chunk) => {
-          console.log(
-            `Received ${chunk.length} bytes of data from ytdl alternative stream`
-          );
-        });
-
-        // Log when the stream ends
-        ytdlStream.on("end", () => {
-          console.log("ytdl alternative stream ended");
-        });
-
-        // Create the audio resource
-        console.log("Creating audio resource from ytdl alternative stream...");
-        const resource = createAudioResource(ytdlStream, {
-          inlineVolume: true,
-        });
-
-        if (!resource) {
-          console.error("Error: resource is undefined");
-          throw new Error(
-            "Failed to create audio resource: result is undefined"
-          );
-        }
-
-        console.log("Audio resource created");
-
-        if (resource.volume) {
-          console.log("Setting volume to 100%");
-          resource.volume.setVolume(1);
-        } else {
-          console.log(
-            "Warning: resource.volume is undefined, cannot set volume"
-          );
-        }
-
-        console.log("Playing audio resource...");
-        player.play(resource);
-        console.log("Audio resource is now playing");
-
-        nowPlaying.set(guildId, nextSong);
-        console.log(`Set nowPlaying for guild ${guildId}`);
-
-        console.log(
-          `Successfully playing: ${nextSong.title} using ytdl-core (alternative options)`
-        );
-        success = true;
-      } catch (error) {
-        console.error(`Method 4 failed: ${error.message}`);
-        console.error(error.stack);
-        errorMessages.push(
-          `Method 4 (ytdl-core alternative options): ${error.message}`
-        );
-      }
-    }
-
-    // Method 5: Last resort - try with a completely different approach
-    if (!success) {
-      try {
-        console.log("Method 5: Last resort attempt with minimal options...");
-
-        // Try with minimal options
-        console.log("Creating ytdl stream with minimal options...");
-        const ytdlOptions = {
-          filter: "audioonly",
-          requestOptions: {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            },
-          },
-        };
-
-        console.log(`ytdl minimal options: ${JSON.stringify(ytdlOptions)}`);
-        const ytdlStream = ytdl(normalizedUrl, ytdlOptions);
-        console.log("ytdl stream with minimal options created");
-
-        ytdlStream.on("error", (error) => {
-          console.error(`ytdl minimal stream error: ${error.message}`);
-          console.error(error.stack);
-          // Only try to play the next song if we haven't already succeeded
-          if (!success) {
-            console.log("Scheduling next song due to stream error...");
-            setTimeout(() => playNext(guildId), 1000);
-          }
-        });
-
-        // Create the audio resource
-        console.log("Creating audio resource from ytdl minimal stream...");
-        const resource = createAudioResource(ytdlStream, {
-          inlineVolume: true,
-        });
-
-        if (!resource) {
-          console.error("Error: resource is undefined");
-          throw new Error(
-            "Failed to create audio resource: result is undefined"
-          );
-        }
-
-        console.log("Audio resource created");
-
-        if (resource.volume) {
-          console.log("Setting volume to 100%");
-          resource.volume.setVolume(1);
-        } else {
-          console.log(
-            "Warning: resource.volume is undefined, cannot set volume"
-          );
-        }
-
-        console.log("Playing audio resource...");
-        player.play(resource);
-        console.log("Audio resource is now playing");
-
-        nowPlaying.set(guildId, nextSong);
-        console.log(`Set nowPlaying for guild ${guildId}`);
-
-        console.log(
-          `Successfully playing: ${nextSong.title} using ytdl-core (minimal options)`
-        );
-        success = true;
-      } catch (error) {
-        console.error(`Method 5 failed: ${error.message}`);
-        console.error(error.stack);
-        errorMessages.push(
-          `Method 5 (ytdl-core minimal options): ${error.message}`
-        );
-      }
-    }
-
-    // If all methods failed, log detailed error and skip to next song
-    if (!success) {
-      console.error(`All playback methods failed for ${nextSong.title}.`);
-      console.error(`Error messages: ${JSON.stringify(errorMessages)}`);
-
-      // Skip to the next song
-      console.log("Scheduling next song due to all methods failing...");
-      setTimeout(() => playNext(guildId), 1000);
-
+    if (!player || !connection) {
       return {
         success: false,
-        message: `Couldn't play ${nextSong.title}, skipping to next song...`,
+        message: "Player or connection not found. Please try again.",
       };
     }
 
-    // If we got here, one of the methods succeeded
-    console.log(
-      `=== PLAY NEXT FUNCTION COMPLETED SUCCESSFULLY FOR GUILD ${guildId} ===`
-    );
-    return {
-      success: true,
-      message: `Now playing: ${nextSong.title}`,
-      title: nextSong.title,
-    };
+    // Try to play using play-dl first (most reliable)
+    try {
+      const stream = await play.stream(nextSong.url);
+
+      // Create the audio resource
+      const resource = createAudioResource(stream.stream, {
+        inputType: stream.type,
+        inlineVolume: true,
+      });
+      resource.volume.setVolume(1);
+
+      // Play the audio
+      player.play(resource);
+
+      return {
+        success: true,
+        message: `Now playing: **${nextSong.title}**`,
+      };
+    } catch (playDlError) {
+      // Fallback to ytdl-core
+      try {
+        const ytdlOptions = {
+          filter: "audioonly",
+          quality: "highestaudio",
+          highWaterMark: 1 << 25, // 32MB buffer
+        };
+
+        const ytdlStream = ytdl(nextSong.url, ytdlOptions);
+
+        // Create the audio resource
+        const resource = createAudioResource(ytdlStream, {
+          inputType: undefined, // Let Discord.js figure it out
+          inlineVolume: true,
+        });
+        resource.volume.setVolume(1);
+
+        // Play the audio
+        player.play(resource);
+
+        return {
+          success: true,
+          message: `Now playing: **${nextSong.title}**`,
+        };
+      } catch (ytdlError) {
+        console.error(
+          `Failed to play song with both methods: ${nextSong.title}`
+        );
+
+        // Skip to the next song
+        setTimeout(() => playNext(guildId), 1000);
+
+        return {
+          success: false,
+          message: `Couldn't play ${nextSong.title}, skipping to next song...`,
+        };
+      }
+    }
   } catch (error) {
-    console.error("=== ERROR IN PLAY NEXT FUNCTION ===");
-    console.error(`Error type: ${error.name}`);
-    console.error(`Error message: ${error.message}`);
-    console.error(`Error stack: ${error.stack}`);
+    console.error(`Error in playNext: ${error.message}`);
 
     // Try to play the next song in the queue
-    console.log("Scheduling next song due to error...");
-    setTimeout(() => {
-      try {
-        console.log(`Getting queue for guild ${guildId} after error`);
-        const queue = queues.get(guildId);
-        if (queue && queue.length > 0) {
-          console.log(`Queue has ${queue.length} songs, playing next song`);
-          playNext(guildId);
-        } else {
-          console.log("Queue is empty, not playing next song");
-        }
-      } catch (nextError) {
-        console.error(
-          "Error trying to play next song after failure:",
-          nextError.message
-        );
-        console.error(nextError.stack);
-      }
-    }, 1000);
+    const queue = queues.get(guildId);
+    if (queue && queue.length > 0) {
+      setTimeout(() => playNext(guildId), 1000);
+    }
 
     return { success: false, message: `Error: ${error.message}` };
   }
 }
 
-// Function to skip the current song
+/**
+ * Skip the current song
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status and message
+ */
 function skipSong(guildId) {
   try {
     const player = players.get(guildId);
@@ -1220,46 +427,90 @@ function skipSong(guildId) {
       return { success: false, message: "No audio player found!" };
     }
 
-    if (
-      player.state.status === AudioPlayerStatus.Playing ||
-      player.state.status === "buffering"
-    ) {
-      player.stop();
-      return { success: true, message: "Skipped to the next song!" };
-    } else {
-      return { success: false, message: "Nothing is playing right now!" };
-    }
+    // Stop the current song, which will trigger the idle event and play the next song
+    player.stop();
+    return { success: true, message: "Skipped to the next song!" };
   } catch (error) {
-    console.error("Error skipping song:", error);
+    console.error(`Error skipping song: ${error.message}`);
     return { success: false, message: `Error: ${error.message}` };
   }
 }
 
-// Function to get the current queue
+/**
+ * Pause the current playback
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status and message
+ */
+function pausePlayback(guildId) {
+  try {
+    const player = players.get(guildId);
+    if (!player) {
+      return { success: false, message: "No audio player found!" };
+    }
+
+    if (player.state.status !== AudioPlayerStatus.Playing) {
+      return { success: false, message: "Nothing is playing right now!" };
+    }
+
+    player.pause();
+    return { success: true, message: "Paused the current song!" };
+  } catch (error) {
+    console.error(`Error pausing playback: ${error.message}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Resume the current playback
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status and message
+ */
+function resumePlayback(guildId) {
+  try {
+    const player = players.get(guildId);
+    if (!player) {
+      return { success: false, message: "No audio player found!" };
+    }
+
+    if (player.state.status !== AudioPlayerStatus.Paused) {
+      return { success: false, message: "Playback is not paused!" };
+    }
+
+    player.unpause();
+    return { success: true, message: "Resumed playback!" };
+  } catch (error) {
+    console.error(`Error resuming playback: ${error.message}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Get the current queue
+ * @param {string} guildId - Guild ID
+ * @returns {Object} Result object with success status, message, current song, and queue
+ */
 function getQueue(guildId) {
   const queue = queues.get(guildId);
   const current = nowPlaying.get(guildId);
-  
+
   if (!queue || queue.length === 0) {
     if (!current) {
-      return { success: false, message: "The queue is empty!" };
-    } else {
-      return { 
-        success: true, 
-        current,
-        queue: []
-      };
+      return { success: false, message: "No songs in the queue!" };
     }
   }
-  
-  return { 
-    success: true, 
+
+  return {
+    success: true,
+    message: "Retrieved queue successfully",
     current,
-    queue
+    queue,
   };
 }
 
-// Function to clean up resources
+/**
+ * Clean up resources for a guild
+ * @param {string} guildId - Guild ID
+ */
 function cleanup(guildId) {
   connections.delete(guildId);
   players.delete(guildId);
@@ -1272,5 +523,7 @@ module.exports = {
   leaveChannel,
   playYouTube,
   skipSong,
-  getQueue
+  pausePlayback,
+  resumePlayback,
+  getQueue,
 };

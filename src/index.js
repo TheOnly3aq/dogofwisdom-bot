@@ -15,6 +15,8 @@ const {
   leaveChannel,
   playYouTube,
   skipSong,
+  pausePlayback,
+  resumePlayback,
   getQueue,
 } = require("./musicPlayer");
 
@@ -155,6 +157,16 @@ const commands = [
   new SlashCommandBuilder()
     .setName("leave")
     .setDescription("Leave the voice channel")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("pause")
+    .setDescription("Pause the current song")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("resume")
+    .setDescription("Resume the paused song")
     .toJSON(),
 
   // Send direct message command (admin only)
