@@ -31,8 +31,10 @@ const config = {
   dailyMessagesEnabled: true, // Default: daily messages are enabled
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
   ownerDMsEnabled: true, // Default: DMs to server owner are enabled
-  adminRoleId: "1376665402758926487", // Role ID that can control bot features
+  adminRoleId: process.env.ADMIN_ROLE_ID || "1376665402758926487", // Role ID that can control bot features
   botOwnerId: process.env.BOT_OWNER_ID || "", // User ID of the bot owner who can use commands in DMs
+  adminUserId: process.env.ADMIN_USER_ID || "", // Additional user ID that can use admin commands
+  logChannelId: process.env.LOG_CHANNEL_ID || "", // Channel ID for logging bot activities
 };
 
 // Create a new Discord client
@@ -184,11 +186,55 @@ const commands = [
     .toJSON(),
 ];
 
+// Handle direct messages sent to the bot
+client.on("messageCreate", async (message) => {
+  // Ignore messages from bots (including itself)
+  if (message.author.bot) return;
+
+  // Only process direct messages
+  if (!message.guild) {
+    // This is a DM
+    logMessage(
+      `Received DM from ${message.author.tag} (${
+        message.author.id
+      }): ${message.content.substring(0, 50)}${
+        message.content.length > 50 ? "..." : ""
+      }`,
+      "dm-received"
+    );
+
+    // Optional: Auto-respond to DMs
+    // message.reply("Thank you for your message! I'm a bot and don't respond to direct messages. Please use commands in a server instead.");
+  }
+});
+
 // Log when the bot is ready
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
   console.log(
     `Scheduled to send daily message at: ${config.cronSchedule} (${config.timezone})`
+  );
+
+  // Initialize logging system
+  const { initializeLogger } = require("./logManager");
+  initializeLogger(client, config);
+
+  logMessage(`Bot started successfully. Logging system active.`, "startup");
+  logMessage(
+    `Bot owner ID set to: ${config.botOwnerId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Admin role ID set to: ${config.adminRoleId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Admin user ID set to: ${config.adminUserId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Log channel ID set to: ${config.logChannelId || "Not configured"}`,
+    "startup"
   );
 
   // Register slash commands
@@ -399,6 +445,7 @@ const {
   testOwnerDM,
 } = require("./nicknameManager");
 const { sendDirectMessage } = require("./directMessageManager");
+const { logMessage, logCommand, logError } = require("./logManager");
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
@@ -768,6 +815,22 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
   const { commandName } = interaction;
+
+  // Log the command usage
+  try {
+    // Get command options for logging
+    const options = {};
+    if (interaction.options && interaction.options._hoistedOptions) {
+      interaction.options._hoistedOptions.forEach((opt) => {
+        options[opt.name] = opt.value;
+      });
+    }
+
+    // Log the command
+    logCommand(interaction, commandName, options);
+  } catch (error) {
+    logError("command logging", error);
+  }
 
   try {
     // Game commands
@@ -1150,8 +1213,11 @@ client.on("interactionCreate", async (interaction) => {
         }
       }
 
-      // If in DMs or anywhere, check if user is the bot owner
-      if (config.botOwnerId && interaction.user.id === config.botOwnerId) {
+      // Check if user is the bot owner or admin user (works in DMs or servers)
+      if (
+        (config.botOwnerId && interaction.user.id === config.botOwnerId) ||
+        (config.adminUserId && interaction.user.id === config.adminUserId)
+      ) {
         hasPermission = true;
       }
 
@@ -1159,7 +1225,7 @@ client.on("interactionCreate", async (interaction) => {
       if (!hasPermission) {
         return interaction.reply({
           content:
-            "❌ You don't have permission to use this command. You need either the admin role in a server or be the bot owner.",
+            "❌ You don't have permission to use this command. You need either the admin role in a server or be an authorized user.",
           ephemeral: true,
         });
       }
@@ -1182,7 +1248,8 @@ client.on("interactionCreate", async (interaction) => {
           client,
           userIdentifier,
           message,
-          useEmbed
+          useEmbed,
+          interaction.user // Pass the sender for logging
         );
 
         // Format the response based on the result

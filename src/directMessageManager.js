@@ -1,6 +1,7 @@
 /**
  * Utility functions for sending direct messages to users
  */
+const { logDirectMessage, logError } = require("./logManager");
 
 /**
  * Sends a direct message to a user by their ID or tag
@@ -8,16 +9,24 @@
  * @param {string} userIdentifier - The user's ID or tag (e.g., "username#1234" or "123456789012345678")
  * @param {string} message - The message to send
  * @param {boolean} includeEmbed - Whether to include an embed with the message
+ * @param {Object} sender - The user who initiated the message (for logging)
  * @returns {Promise<Object>} Object containing the result of the operation
  */
-async function sendDirectMessage(client, userIdentifier, message, includeEmbed = false) {
+async function sendDirectMessage(
+  client,
+  userIdentifier,
+  message,
+  includeEmbed = false,
+  sender = null
+) {
   console.log(`Attempting to send direct message to user: ${userIdentifier}`);
 
   const result = {
     success: false,
     userFound: false,
     dmSent: false,
-    error: null
+    error: null,
+    user: null,
   };
 
   try {
@@ -40,8 +49,8 @@ async function sendDirectMessage(client, userIdentifier, message, includeEmbed =
       // Note: This requires searching through all users the bot can see
       // which might not be efficient for large bots
       const allUsers = client.users.cache;
-      user = allUsers.find(u => u.tag === userIdentifier);
-      
+      user = allUsers.find((u) => u.tag === userIdentifier);
+
       if (!user) {
         console.log(`Could not find user with tag: ${userIdentifier}`);
         result.error = `Could not find user with tag: ${userIdentifier}`;
@@ -56,23 +65,24 @@ async function sendDirectMessage(client, userIdentifier, message, includeEmbed =
     }
 
     result.userFound = true;
+    result.user = user;
 
     // Prepare the message content
     let messageOptions = { content: message };
 
     // Add an embed if requested
     if (includeEmbed) {
-      const { EmbedBuilder } = require('discord.js');
+      const { EmbedBuilder } = require("discord.js");
       const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle('Message from Dog of Wisdom Bot')
+        .setColor("#0099ff")
+        .setTitle("Message from Dog of Wisdom Bot")
         .setDescription(message)
         .setTimestamp()
-        .setFooter({ text: 'Sent with wisdom and love 🐶' });
+        .setFooter({ text: "Sent with wisdom and love 🐶" });
 
       messageOptions = {
-        content: 'You have received a message:',
-        embeds: [embed]
+        content: "You have received a message:",
+        embeds: [embed],
       };
     }
 
@@ -82,14 +92,38 @@ async function sendDirectMessage(client, userIdentifier, message, includeEmbed =
       console.log(`Successfully sent DM to ${user.tag}`);
       result.dmSent = true;
       result.success = true;
+
+      // Log the direct message
+      if (sender) {
+        logDirectMessage(
+          sender.tag,
+          sender.id,
+          user.tag,
+          user.id,
+          message,
+          true
+        );
+      }
     } catch (dmError) {
       console.log(`Could not send DM to ${user.tag}: ${dmError.message}`);
       result.error = `Could not send DM: ${dmError.message}`;
+
+      // Log the failed direct message
+      if (sender) {
+        logDirectMessage(
+          sender.tag,
+          sender.id,
+          user.tag,
+          user.id,
+          message,
+          false
+        );
+      }
     }
 
     return result;
   } catch (error) {
-    console.error(`Error in sendDirectMessage:`, error);
+    logError("sendDirectMessage", error);
     result.error = error.message;
     return result;
   }
