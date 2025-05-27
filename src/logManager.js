@@ -56,6 +56,7 @@ async function logToDiscord(message, type, embedData = null) {
       error: "#e74c3c", // Red
       startup: "#f1c40f", // Yellow
       "dm-received": "#1abc9c", // Teal
+      "message-received": "#e67e22", // Orange
     };
 
     // Create a rich embed for the log

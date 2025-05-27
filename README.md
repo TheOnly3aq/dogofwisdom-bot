@@ -12,6 +12,9 @@ A fun Discord bot that sends random "Dog of Wisdom" style messages to a random c
 - 🔄 Anti-mute system that creates new categories each time
 - 🍪 Changes everyone's nickname to a random Dutch snack every Monday at 3 AM
 - 🎲 Game selection dice roll command to help decide what to play
+- 📝 Comprehensive logging system with Discord channel integration
+- 📨 Direct message command for admins (works in DMs and servers)
+- 🔐 Configurable permissions via environment variables
 
 ## Setup
 
@@ -68,8 +71,19 @@ Configure the bot by creating a `.env` file in the root directory.
 ### Environment Variables
 
 ```
+# Required
 BOT_TOKEN=YOUR_DISCORD_BOT_TOKEN
 CRON_SCHEDULE=0 9 * * *
+
+# User and role permissions
+BOT_OWNER_ID=YOUR_DISCORD_USER_ID
+ADMIN_ROLE_ID=ROLE_ID_FOR_ADMIN_COMMANDS
+ADMIN_USER_ID=ADDITIONAL_ADMIN_USER_ID
+
+# Logging configuration
+LOG_CHANNEL_ID=CHANNEL_ID_FOR_LOGGING
+
+# Optional
 # TIMEZONE=UTC  # Optional, defaults to server's local timezone
 ```
 
@@ -77,6 +91,10 @@ CRON_SCHEDULE=0 9 * * *
 
 - `BOT_TOKEN`: Your Discord bot token
 - `CRON_SCHEDULE`: When to send the message (in cron format)
+- `BOT_OWNER_ID`: Discord user ID of the bot owner (can use admin commands in DMs)
+- `ADMIN_ROLE_ID`: Role ID that grants admin permissions in servers
+- `ADMIN_USER_ID`: Additional user ID that can use admin commands (optional)
+- `LOG_CHANNEL_ID`: Channel ID where bot logs will be sent (optional)
 - `TIMEZONE`: The timezone for the cron schedule (optional, defaults to server's local timezone)
 
 ### Message Generation
@@ -118,6 +136,29 @@ Some examples of Dutch snacks used:
 - Hagelslag
 - And many more!
 
+### Logging System
+
+The bot includes a comprehensive logging system that records all activities:
+
+- **File Logging**: All logs are saved to daily log files in the `logs` directory
+- **Console Logging**: Real-time logs are displayed in the console
+- **Discord Channel Logging**: Logs can be sent to a specified Discord channel
+
+#### Log Types
+- **Command Logs**: Records who used which commands and with what parameters
+- **DM Logs**: Tracks direct messages sent by the bot (with privacy protection)
+- **Error Logs**: Detailed error reporting with stack traces
+- **Startup Logs**: Configuration information when the bot starts
+- **Received DM Logs**: Records when users send direct messages to the bot
+- **Mention Logs**: Records when users mention the bot in messages
+
+#### Discord Channel Logging
+When configured with a `LOG_CHANNEL_ID`, the bot will send rich embeds to the specified channel with:
+- Color-coded logs by type (blue for info, green for commands, red for errors, etc.)
+- Structured information in embed fields
+- Timestamps for all events
+- Truncated message content for privacy
+
 ## Bot Commands
 
 The bot supports both traditional prefix commands (starting with `!`) and Discord slash commands (starting with `/`).
@@ -134,14 +175,15 @@ The bot supports both traditional prefix commands (starting with `!`) and Discor
 - `!roll` or `/roll` - Roll a dice to randomly select a game to play (chooses between Minecraft, Repo, and Lethal Company)
 
 ### Admin Commands
-- `!toggledaily` or `/toggledaily` - Toggle daily messages on/off (requires the admin role with ID: 1376665402758926487)
-- `!togglenicknames` or `/togglenicknames` - Toggle weekly nickname changes on/off (requires the admin role with ID: 1376665402758926487)
-- `/send-now` - Send the daily message immediately (requires admin role)
-- `/test-nicknames` - Test the nickname change functionality without waiting for the schedule (requires admin role)
-- `/change-nicknames` - Manually change all nicknames to Dutch snacks (requires admin role)
-- `/test-group-snack` - Test the group snack event where everyone gets the same nickname (requires admin role)
-- `/check-timezone` - Check the current timezone configuration (requires admin role)
-- `/test-owner-dm` - Test sending a nickname suggestion DM to the server owner (requires admin role)
+- `!toggledaily` or `/toggledaily` - Toggle daily messages on/off (requires admin permissions)
+- `!togglenicknames` or `/togglenicknames` - Toggle weekly nickname changes on/off (requires admin permissions)
+- `/send-now` - Send the daily message immediately (requires admin permissions)
+- `/test-nicknames` - Test the nickname change functionality without waiting for the schedule (requires admin permissions)
+- `/change-nicknames` - Manually change all nicknames to Dutch snacks (requires admin permissions)
+- `/test-group-snack` - Test the group snack event where everyone gets the same nickname (requires admin permissions)
+- `/check-timezone` - Check the current timezone configuration (requires admin permissions)
+- `/test-owner-dm` - Test sending a nickname suggestion DM to the server owner (requires admin permissions)
+- `/send-dm` - Send a direct message to any user (requires admin permissions, works in DMs for bot owner)
 
 ### Using Slash Commands
 Slash commands provide these benefits:
@@ -149,6 +191,25 @@ Slash commands provide these benefits:
 - Better visibility in Discord's UI
 - No need to remember command prefixes
 - Admin commands are only shown to users with appropriate permissions
+
+### Direct Message Command
+
+The `/send-dm` command allows authorized users to send direct messages to any user:
+
+```
+/send-dm user:USER_ID_OR_TAG message:YOUR_MESSAGE use_embed:true/false
+```
+
+Parameters:
+- `user`: Either a Discord user ID (e.g., "123456789012345678") or a Discord user tag (e.g., "username#1234")
+- `message`: The message content to send
+- `use_embed`: Whether to send the message as a rich embed (optional, default: false)
+
+Permissions:
+- In servers: Users with the admin role (configured by `ADMIN_ROLE_ID`)
+- In DMs: The bot owner (configured by `BOT_OWNER_ID`) or admin user (configured by `ADMIN_USER_ID`)
+
+This command works both in servers and in direct messages with the bot, making it useful for sending announcements or private messages to users.
 
 ## Cron Schedule Format
 

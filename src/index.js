@@ -186,25 +186,49 @@ const commands = [
     .toJSON(),
 ];
 
-// Handle direct messages sent to the bot
+// Handle messages sent to the bot
 client.on("messageCreate", async (message) => {
   // Ignore messages from bots (including itself)
   if (message.author.bot) return;
 
-  // Only process direct messages
-  if (!message.guild) {
-    // This is a DM
+  // Log all messages that mention the bot or are direct messages
+  const botMentioned = message.mentions.users.has(client.user.id);
+  const isDM = !message.guild;
+
+  if (isDM || botMentioned) {
+    // Truncate message for privacy
+    const truncatedContent =
+      message.content.substring(0, 100) +
+      (message.content.length > 100 ? "..." : "");
+
+    // Create log message
+    const location = isDM
+      ? "DM"
+      : `#${message.channel.name} in ${message.guild.name}`;
+    const logType = isDM ? "dm-received" : "message-received";
+
+    // Create embed data for rich logging
+    const embedData = {
+      User: `${message.author.tag} (${message.author.id})`,
+      Location: location,
+      Content: truncatedContent,
+      Attachments:
+        message.attachments.size > 0
+          ? `${message.attachments.size} attachment(s)`
+          : "None",
+    };
+
+    // Log the message
     logMessage(
-      `Received DM from ${message.author.tag} (${
-        message.author.id
-      }): ${message.content.substring(0, 50)}${
-        message.content.length > 50 ? "..." : ""
-      }`,
-      "dm-received"
+      `Received message from ${message.author.tag} in ${location}: ${truncatedContent}`,
+      logType,
+      embedData
     );
 
     // Optional: Auto-respond to DMs
-    // message.reply("Thank you for your message! I'm a bot and don't respond to direct messages. Please use commands in a server instead.");
+    // if (isDM) {
+    //   message.reply("Thank you for your message! I'm a bot and don't respond to direct messages. Please use commands in a server instead.");
+    // }
   }
 });
 
