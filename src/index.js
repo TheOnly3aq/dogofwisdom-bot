@@ -1421,6 +1421,18 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.reply(
         result.success ? result.message : `❌ ${result.message}`
       );
+    } else if (commandName === "pause") {
+      // Pause the current song
+      const result = pausePlayback(interaction.guild.id);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (commandName === "resume") {
+      // Resume the paused song
+      const result = resumePlayback(interaction.guild.id);
+      await interaction.reply(
+        result.success ? result.message : `❌ ${result.message}`
+      );
     }
   } catch (error) {
     console.error("Error handling slash command:", error);

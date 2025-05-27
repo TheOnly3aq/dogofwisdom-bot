@@ -261,15 +261,31 @@ async function playYouTube(context, url) {
     }
 
     // Extract video details
+    if (!videoInfo || !videoInfo.video_details) {
+      return {
+        success: false,
+        message:
+          "Failed to get video information. The video might be unavailable or restricted.",
+      };
+    }
+
     const videoDetails = videoInfo.video_details;
+
+    // Validate video details
+    if (!videoDetails.title || !videoDetails.url) {
+      return {
+        success: false,
+        message: "Invalid video details. The video might be unavailable.",
+      };
+    }
 
     // Create a song object
     const song = {
       title: videoDetails.title,
       url: videoDetails.url,
-      thumbnail: videoDetails.thumbnail.url,
-      duration: videoDetails.durationInSec,
-      requestedBy: context.member.user.tag,
+      thumbnail: videoDetails.thumbnail?.url || "",
+      duration: videoDetails.durationInSec || 0,
+      requestedBy: context.member?.user?.tag || "Unknown user",
     };
 
     // Get the queue for this guild
@@ -331,6 +347,24 @@ async function playNext(guildId) {
     // Get the next song
     const nextSong = queue.shift();
 
+    // Validate the song object
+    if (!nextSong || !nextSong.url) {
+      console.error("Invalid song object:", nextSong);
+      // Try to play the next song in the queue
+      if (queue.length > 0) {
+        setTimeout(() => playNext(guildId), 1000);
+        return {
+          success: false,
+          message: "Invalid song data, skipping to next song...",
+        };
+      } else {
+        return {
+          success: false,
+          message: "Invalid song data and no more songs in the queue!",
+        };
+      }
+    }
+
     // Set the now playing
     nowPlaying.set(guildId, nextSong);
 
@@ -347,7 +381,17 @@ async function playNext(guildId) {
 
     // Try to play using play-dl first (most reliable)
     try {
+      console.log(`Attempting to play: ${nextSong.url}`);
+
+      if (!nextSong.url) {
+        throw new Error("Song URL is undefined");
+      }
+
       const stream = await play.stream(nextSong.url);
+
+      if (!stream || !stream.stream) {
+        throw new Error("Failed to create stream");
+      }
 
       // Create the audio resource
       const resource = createAudioResource(stream.stream, {
@@ -366,6 +410,12 @@ async function playNext(guildId) {
     } catch (playDlError) {
       // Fallback to ytdl-core
       try {
+        console.log(`Falling back to ytdl-core for: ${nextSong.url}`);
+
+        if (!nextSong.url) {
+          throw new Error("Song URL is undefined");
+        }
+
         const ytdlOptions = {
           filter: "audioonly",
           quality: "highestaudio",
@@ -373,6 +423,10 @@ async function playNext(guildId) {
         };
 
         const ytdlStream = ytdl(nextSong.url, ytdlOptions);
+
+        if (!ytdlStream) {
+          throw new Error("Failed to create ytdl stream");
+        }
 
         // Create the audio resource
         const resource = createAudioResource(ytdlStream, {
