@@ -32,6 +32,7 @@ const config = {
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
   ownerDMsEnabled: true, // Default: DMs to server owner are enabled
   adminRoleId: "1376665402758926487", // Role ID that can control bot features
+  botOwnerId: process.env.BOT_OWNER_ID || "", // User ID of the bot owner who can use commands in DMs
 };
 
 // Create a new Discord client
@@ -1138,12 +1139,27 @@ client.on("interactionCreate", async (interaction) => {
 
     // Admin command: send-dm
     else if (commandName === "send-dm") {
-      // Check if the user has the required admin role
-      const member = interaction.member;
-      if (!member.roles.cache.has(config.adminRoleId)) {
+      // Check permissions - either admin role in a server or bot owner in DMs
+      let hasPermission = false;
+
+      // If in a guild (server), check for admin role
+      if (interaction.guild) {
+        const member = interaction.member;
+        if (member && member.roles.cache.has(config.adminRoleId)) {
+          hasPermission = true;
+        }
+      }
+
+      // If in DMs or anywhere, check if user is the bot owner
+      if (config.botOwnerId && interaction.user.id === config.botOwnerId) {
+        hasPermission = true;
+      }
+
+      // If no permission, reject the command
+      if (!hasPermission) {
         return interaction.reply({
           content:
-            "❌ You don't have permission to use this command. You need the admin role.",
+            "❌ You don't have permission to use this command. You need either the admin role in a server or be the bot owner.",
           ephemeral: true,
         });
       }
