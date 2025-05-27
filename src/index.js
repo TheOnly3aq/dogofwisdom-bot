@@ -152,6 +152,35 @@ const commands = [
     .setName("leave")
     .setDescription("Leave the voice channel")
     .toJSON(),
+
+  // Send direct message command (admin only)
+  new SlashCommandBuilder()
+    .setName("send-dm")
+    .setDescription("Send a direct message to a specific user")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option
+        .setName("user")
+        .setDescription(
+          "The user's ID or tag (e.g., 'username#1234' or '123456789012345678')"
+        )
+        .setRequired(true)
+    )
+    .addStringOption((option) =>
+      option
+        .setName("message")
+        .setDescription("The message to send to the user")
+        .setRequired(true)
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName("use_embed")
+        .setDescription(
+          "Whether to send the message as an embed (default: false)"
+        )
+        .setRequired(false)
+    )
+    .toJSON(),
 ];
 
 // Log when the bot is ready
@@ -368,6 +397,7 @@ const {
   changeNicknamesToDutchSnacks,
   testOwnerDM,
 } = require("./nicknameManager");
+const { sendDirectMessage } = require("./directMessageManager");
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
@@ -1103,6 +1133,81 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.editReply(
           `❌ Error testing owner DM: ${error.message}`
         );
+      }
+    }
+
+    // Admin command: send-dm
+    else if (commandName === "send-dm") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply({ ephemeral: true });
+
+      try {
+        // Get the parameters from the options
+        const userIdentifier = interaction.options.getString("user");
+        const message = interaction.options.getString("message");
+        const useEmbed = interaction.options.getBoolean("use_embed") || false;
+
+        console.log(
+          `Sending direct message to ${userIdentifier} (initiated by ${interaction.user.tag})`
+        );
+
+        // Send the direct message
+        const result = await sendDirectMessage(
+          client,
+          userIdentifier,
+          message,
+          useEmbed
+        );
+
+        // Format the response based on the result
+        let responseMessage = `✅ Direct message operation complete!\n`;
+
+        if (result.success) {
+          responseMessage += `✅ Successfully sent a DM to the user!\n`;
+          responseMessage += `User: ${userIdentifier}\n`;
+          responseMessage += `Message: "${message}"\n`;
+          responseMessage += `Embed: ${useEmbed ? "Yes" : "No"}\n`;
+        } else {
+          responseMessage += `⚠️ Operation completed with issues:\n`;
+
+          if (result.userFound) {
+            responseMessage += `✅ User found\n`;
+          } else {
+            responseMessage += `❌ Could not find user with identifier: ${userIdentifier}\n`;
+          }
+
+          if (result.dmSent) {
+            responseMessage += `✅ DM was sent successfully\n`;
+          } else {
+            responseMessage += `❌ Could not send DM to user\n`;
+          }
+
+          if (result.error) {
+            responseMessage += `\nError: ${result.error}`;
+          }
+        }
+
+        // Send the result (ephemeral so only the command user can see it)
+        await interaction.editReply({
+          content: responseMessage,
+          ephemeral: true,
+        });
+      } catch (error) {
+        console.error("Error sending direct message:", error);
+        await interaction.editReply({
+          content: `❌ Error sending direct message: ${error.message}`,
+          ephemeral: true,
+        });
       }
     }
 
