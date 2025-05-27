@@ -231,6 +231,25 @@ async function joinChannel(context) {
       console.log("Player is now AutoPaused");
     });
 
+    // Handle buffering state
+    player.on("stateChange", (oldState, newState) => {
+      if (newState.status === "buffering") {
+        console.log("Player is now Buffering");
+
+        // Set a timeout to check if player is still buffering after 10 seconds
+        setTimeout(() => {
+          if (player.state.status === "buffering") {
+            console.log(
+              "Player still buffering after 10 seconds, resetting..."
+            );
+            player.stop();
+            console.log("Player has been reset from buffering state");
+            playNext(context.guild.id);
+          }
+        }, 10000);
+      }
+    });
+
     player.on("error", (error) => {
       console.error(`Player error: ${error.message}`);
       console.error(error.stack);
@@ -460,12 +479,17 @@ async function playYouTube(context, url) {
 
       console.log(`Player state: ${player.state.status}`);
 
-      if (player.state.status === AudioPlayerStatus.Idle) {
-        console.log("Player is idle, starting playback immediately");
+      if (
+        player.state.status === AudioPlayerStatus.Idle ||
+        player.state.status === "buffering"
+      ) {
+        console.log(
+          "Player is idle or buffering, starting playback immediately"
+        );
         return await playNext(guildId);
       } else {
         console.log(
-          `Player is busy, added to queue at position ${queue.length}`
+          `Player is busy (${player.state.status}), added to queue at position ${queue.length}`
         );
         return {
           success: true,
@@ -539,14 +563,17 @@ async function playYouTube(context, url) {
 
         console.log(`Player state: ${player.state.status}`);
 
-        if (player.state.status === AudioPlayerStatus.Idle) {
+        if (
+          player.state.status === AudioPlayerStatus.Idle ||
+          player.state.status === "buffering"
+        ) {
           console.log(
-            "Player is idle, starting playback immediately (fallback)"
+            "Player is idle or buffering, starting playback immediately (fallback)"
           );
           return await playNext(guildId);
         } else {
           console.log(
-            `Player is busy, added to queue at position ${queue.length} (fallback)`
+            `Player is busy (${player.state.status}), added to queue at position ${queue.length} (fallback)`
           );
           return {
             success: true,
@@ -614,14 +641,17 @@ async function playYouTube(context, url) {
 
         console.log(`Player state: ${player.state.status}`);
 
-        if (player.state.status === AudioPlayerStatus.Idle) {
+        if (
+          player.state.status === AudioPlayerStatus.Idle ||
+          player.state.status === "buffering"
+        ) {
           console.log(
-            "Player is idle, starting playback immediately (last resort)"
+            "Player is idle or buffering, starting playback immediately (last resort)"
           );
           return await playNext(guildId);
         } else {
           console.log(
-            `Player is busy, added to queue at position ${queue.length} (last resort)`
+            `Player is busy (${player.state.status}), added to queue at position ${queue.length} (last resort)`
           );
           return {
             success: true,
@@ -672,6 +702,14 @@ async function playNext(guildId) {
     }
 
     console.log(`Player state: ${player.state.status}`);
+
+    // If player is stuck in buffering state, reset it
+    if (player.state.status === "buffering") {
+      console.log("Player is in buffering state, resetting it...");
+      player.stop();
+      console.log("Player has been reset from buffering state");
+    }
+
     console.log(`Attempting to play: ${nextSong.title} (${nextSong.url})`);
 
     // Make sure we have a valid video ID
@@ -1182,7 +1220,10 @@ function skipSong(guildId) {
       return { success: false, message: "No audio player found!" };
     }
 
-    if (player.state.status === AudioPlayerStatus.Playing) {
+    if (
+      player.state.status === AudioPlayerStatus.Playing ||
+      player.state.status === "buffering"
+    ) {
       player.stop();
       return { success: true, message: "Skipped to the next song!" };
     } else {
