@@ -168,6 +168,11 @@ const commands = [
     .setName("resume")
     .setDescription("Resume the paused song")
     .toJSON(),
+    
+  new SlashCommandBuilder()
+    .setName("help")
+    .setDescription("Show the help message with all available commands")
+    .toJSON(),
 
   // Send direct message command (admin only)
   new SlashCommandBuilder()
@@ -726,6 +731,18 @@ client.on("messageCreate", async (message) => {
       message.channel.send(
         result.success ? result.message : `❌ ${result.message}`
       );
+    } else if (command === "pause") {
+      // Pause the current song
+      const result = pausePlayback(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
+    } else if (command === "resume") {
+      // Resume the paused song
+      const result = resumePlayback(message.guild.id);
+      message.channel.send(
+        result.success ? result.message : `❌ ${result.message}`
+      );
     } else if (command === "roll") {
       // List of games to roll from
       const games = ["Minecraft", "Repo", "Lethal Company"];
@@ -737,6 +754,42 @@ client.on("messageCreate", async (message) => {
       message.channel.send(
         `🎲 The dice has been rolled! You should play: **${randomGame}**`
       );
+    } else if (command === "help") {
+      // Send help message
+      const helpEmbed = {
+        title: "Dog of Wisdom Bot - Help",
+        description: "Here are the available commands:",
+        color: 0x3498db,
+        fields: [
+          {
+            name: "🎵 Music Commands",
+            value: 
+              "`!play [url]` - Play a YouTube video\n" +
+              "`!skip` - Skip the current song\n" +
+              "`!queue` - Show the current music queue\n" +
+              "`!join` - Join your voice channel\n" +
+              "`!leave` - Leave the voice channel\n" +
+              "`!pause` - Pause the current song\n" +
+              "`!resume` - Resume the paused song"
+          },
+          {
+            name: "🎲 Game Commands",
+            value: "`!roll` - Roll a dice to decide what game to play"
+          },
+          {
+            name: "⚙️ Admin Commands",
+            value: 
+              "`!toggledaily` - Toggle daily messages on/off\n" +
+              "`!togglenicknames` - Toggle weekly nickname changes on/off\n" +
+              "Use `/` commands for more admin features"
+          }
+        ],
+        footer: {
+          text: "All commands are also available as slash (/) commands"
+        }
+      };
+      
+      message.channel.send({ embeds: [helpEmbed] });
     } else if (command === "toggledaily") {
       // Check if the user has the required admin role
       const member = message.member;
@@ -1433,6 +1486,49 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.reply(
         result.success ? result.message : `❌ ${result.message}`
       );
+    } else if (commandName === "help") {
+      // Send help message
+      const helpEmbed = {
+        title: "Dog of Wisdom Bot - Help",
+        description: "Here are the available commands:",
+        color: 0x3498db,
+        fields: [
+          {
+            name: "🎵 Music Commands",
+            value: 
+              "`/play [url]` - Play a YouTube video\n" +
+              "`/skip` - Skip the current song\n" +
+              "`/queue` - Show the current music queue\n" +
+              "`/join` - Join your voice channel\n" +
+              "`/leave` - Leave the voice channel\n" +
+              "`/pause` - Pause the current song\n" +
+              "`/resume` - Resume the paused song"
+          },
+          {
+            name: "🎲 Game Commands",
+            value: "`/roll` - Roll a dice to decide what game to play"
+          },
+          {
+            name: "⚙️ Admin Commands",
+            value: 
+              "`/toggledaily` - Toggle daily messages on/off\n" +
+              "`/togglenicknames` - Toggle weekly nickname changes on/off\n" +
+              "`/toggleownerdms` - Toggle DM notifications to server owners\n" +
+              "`/send-now` - Send the daily message immediately\n" +
+              "`/test-nicknames` - Test the nickname change functionality\n" +
+              "`/change-nicknames` - Manually change all nicknames\n" +
+              "`/test-group-snack` - Test the group snack event\n" +
+              "`/check-timezone` - Check the timezone configuration\n" +
+              "`/test-owner-dm` - Test sending a nickname suggestion DM\n" +
+              "`/send-dm` - Send a direct message to a specific user"
+          }
+        ],
+        footer: {
+          text: "All commands are also available with the ! prefix (e.g., !play)"
+        }
+      };
+      
+      await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
     }
   } catch (error) {
     console.error("Error handling slash command:", error);

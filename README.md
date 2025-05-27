@@ -169,6 +169,8 @@ The bot supports both traditional prefix commands (starting with `!`) and Discor
 - `!queue` or `/queue` - Show the current music queue (alias: `!q`)
 - `!join` or `/join` - Make the bot join your voice channel
 - `!leave` or `/leave` - Make the bot leave the voice channel (alias: `!dc`)
+- `!pause` or `/pause` - Pause the current song
+- `!resume` or `/resume` - Resume the paused song
 - `!help` - Show the help message with all available commands
 
 ### Game Commands
@@ -251,6 +253,27 @@ If the bot can't create a new category and channel, it will fall back to using a
 Bot doesn't have 'Manage Channels' permission in guild "Your Server". Cannot create category.
 Using random channel #general (no prepared channel found)
 ```
+
+### Music Player Issues
+
+If you encounter issues with the music player, try the following:
+
+1. **YouTube API Restrictions**: YouTube occasionally changes their API, which can cause issues with music bots. If you're experiencing problems:
+   - Try using a different YouTube URL
+   - Use a direct YouTube URL instead of a search query
+   - Check if the video is age-restricted or region-locked
+
+2. **Voice Connection Issues**:
+   - Make sure the bot has the "Connect" and "Speak" permissions in the voice channel
+   - Try having the bot leave and rejoin the voice channel
+   - Check if your Discord server region is compatible with the bot's hosting region
+
+3. **Package Dependencies**: If you're hosting the bot yourself, make sure you have the latest versions of the required packages:
+   ```bash
+   npm install @discordjs/voice@latest ytdl-core@latest play-dl@latest ffmpeg-static@latest libsodium-wrappers@latest opusscript@latest
+   ```
+
+4. **Error Messages**: Check the bot's console logs for more detailed error messages that can help diagnose the issue.
 
 ## License
 

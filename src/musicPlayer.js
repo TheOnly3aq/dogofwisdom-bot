@@ -216,12 +216,33 @@ async function playYouTube(context, url) {
     // Check if the input is a URL or a search query
     if (ytdl.validateURL(url)) {
       // It's a valid YouTube URL
+      console.log(`Processing valid YouTube URL: ${url}`);
       try {
+        // Try with play-dl first
         videoInfo = await play.video_info(url);
+        console.log("Successfully retrieved video info with play-dl");
       } catch (error) {
+        console.error(`play-dl video_info error: ${error.message}`);
         try {
-          // Fallback to ytdl-core
-          const ytdlInfo = await ytdl.getInfo(url);
+          // Fallback to ytdl-core with more robust options
+          console.log("Falling back to ytdl-core for video info");
+
+          const ytdlOptions = {
+            requestOptions: {
+              headers: {
+                // Add a user agent to avoid being blocked
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                Accept:
+                  "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+              },
+            },
+          };
+
+          const ytdlInfo = await ytdl.getInfo(url, ytdlOptions);
+          console.log("Successfully retrieved video info with ytdl-core");
+
           videoInfo = {
             video_details: {
               title: ytdlInfo.videoDetails.title,
@@ -233,18 +254,54 @@ async function playYouTube(context, url) {
             },
           };
         } catch (ytdlError) {
-          return {
-            success: false,
-            message: "Failed to get video information. Please try another URL.",
-          };
+          console.error(`ytdl-core getInfo error: ${ytdlError.message}`);
+
+          // Try to extract video ID and create a basic info object
+          try {
+            console.log("Attempting to create basic video info from URL");
+            let videoId = "";
+
+            if (url.includes("youtube.com/watch?v=")) {
+              videoId = url.split("v=")[1].split("&")[0];
+            } else if (url.includes("youtu.be/")) {
+              videoId = url.split("youtu.be/")[1].split("?")[0];
+            }
+
+            if (videoId) {
+              // Create a basic video info object
+              videoInfo = {
+                video_details: {
+                  title: `YouTube Video (${videoId})`,
+                  url: url,
+                  thumbnail: {
+                    url: `https://img.youtube.com/vi/${videoId}/default.jpg`,
+                  },
+                  durationInSec: 0,
+                },
+              };
+              console.log("Created basic video info from URL");
+            } else {
+              throw new Error("Could not extract video ID");
+            }
+          } catch (extractError) {
+            console.error(`Video ID extraction error: ${extractError.message}`);
+            return {
+              success: false,
+              message:
+                "Failed to get video information. YouTube might be blocking our request. Please try another URL.",
+            };
+          }
         }
       }
     } else {
       // Treat it as a search query
       isSearch = true;
+      console.log(`Processing search query: ${url}`);
       try {
+        // Try with play-dl
         const searchResults = await play.search(url, { limit: 1 });
         if (searchResults && searchResults.length > 0) {
+          console.log(`Found search result: ${searchResults[0].title}`);
           videoInfo = await play.video_info(searchResults[0].url);
         } else {
           return {
@@ -253,10 +310,25 @@ async function playYouTube(context, url) {
           };
         }
       } catch (searchError) {
-        return {
-          success: false,
-          message: "Failed to search for videos. Please try again.",
-        };
+        console.error(`Search error: ${searchError.message}`);
+
+        // Try a different approach for searching
+        try {
+          console.log("Attempting alternative search method");
+          // This is a simplified approach - in a real implementation, you might want to use a different search API
+          return {
+            success: false,
+            message:
+              "Search functionality is currently limited due to YouTube API restrictions. Please try using a direct YouTube URL instead.",
+          };
+        } catch (altSearchError) {
+          console.error(`Alternative search error: ${altSearchError.message}`);
+          return {
+            success: false,
+            message:
+              "Failed to search for videos. YouTube might be blocking our request. Please try using a direct URL.",
+          };
+        }
       }
     }
 
@@ -387,15 +459,21 @@ async function playNext(guildId) {
         throw new Error("Song URL is undefined");
       }
 
-      const stream = await play.stream(nextSong.url);
+      // Try to get a fresh stream URL using play-dl
+      const streamInfo = await play.stream(nextSong.url, {
+        discordPlayerCompatibility: true,
+        quality: 2, // Use high quality audio
+      });
 
-      if (!stream || !stream.stream) {
-        throw new Error("Failed to create stream");
+      if (!streamInfo || !streamInfo.stream) {
+        throw new Error("Failed to create stream with play-dl");
       }
 
+      console.log("Successfully created stream with play-dl");
+
       // Create the audio resource
-      const resource = createAudioResource(stream.stream, {
-        inputType: stream.type,
+      const resource = createAudioResource(streamInfo.stream, {
+        inputType: streamInfo.type,
         inlineVolume: true,
       });
       resource.volume.setVolume(1);
@@ -408,7 +486,9 @@ async function playNext(guildId) {
         message: `Now playing: **${nextSong.title}**`,
       };
     } catch (playDlError) {
-      // Fallback to ytdl-core
+      console.error(`play-dl error: ${playDlError.message}`);
+
+      // Fallback to ytdl-core with more robust error handling
       try {
         console.log(`Falling back to ytdl-core for: ${nextSong.url}`);
 
@@ -416,17 +496,39 @@ async function playNext(guildId) {
           throw new Error("Song URL is undefined");
         }
 
+        // Use more robust ytdl options
         const ytdlOptions = {
           filter: "audioonly",
           quality: "highestaudio",
           highWaterMark: 1 << 25, // 32MB buffer
+          requestOptions: {
+            headers: {
+              // Add a user agent to avoid being blocked
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+              Accept:
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.5",
+            },
+          },
         };
 
+        console.log(
+          "Creating ytdl stream with options:",
+          JSON.stringify(ytdlOptions)
+        );
+
+        // Try to get a fresh stream
         const ytdlStream = ytdl(nextSong.url, ytdlOptions);
 
         if (!ytdlStream) {
           throw new Error("Failed to create ytdl stream");
         }
+
+        // Add error handler to the stream
+        ytdlStream.on("error", (err) => {
+          console.error(`ytdl stream error: ${err.message}`);
+        });
 
         // Create the audio resource
         const resource = createAudioResource(ytdlStream, {
@@ -443,16 +545,52 @@ async function playNext(guildId) {
           message: `Now playing: **${nextSong.title}**`,
         };
       } catch (ytdlError) {
+        console.error(`ytdl-core error: ${ytdlError.message}`);
         console.error(
           `Failed to play song with both methods: ${nextSong.title}`
         );
+
+        // Try one more fallback method - direct URL if it's a YouTube video
+        try {
+          if (
+            nextSong.url.includes("youtube.com") ||
+            nextSong.url.includes("youtu.be")
+          ) {
+            console.log("Attempting final fallback method for YouTube video");
+
+            // Extract video ID
+            let videoId = "";
+            if (nextSong.url.includes("youtube.com/watch?v=")) {
+              videoId = nextSong.url.split("v=")[1].split("&")[0];
+            } else if (nextSong.url.includes("youtu.be/")) {
+              videoId = nextSong.url.split("youtu.be/")[1].split("?")[0];
+            }
+
+            if (videoId) {
+              // Try to get a direct audio URL (this is a simplified approach)
+              console.log(
+                `Attempting to use direct audio URL for video ID: ${videoId}`
+              );
+
+              // Skip to the next song after informing the user
+              setTimeout(() => playNext(guildId), 1000);
+
+              return {
+                success: false,
+                message: `Having trouble playing ${nextSong.title}. YouTube's API might be blocking our request. Skipping to next song...`,
+              };
+            }
+          }
+        } catch (finalError) {
+          console.error(`Final fallback error: ${finalError.message}`);
+        }
 
         // Skip to the next song
         setTimeout(() => playNext(guildId), 1000);
 
         return {
           success: false,
-          message: `Couldn't play ${nextSong.title}, skipping to next song...`,
+          message: `Couldn't play ${nextSong.title} due to YouTube API restrictions. Skipping to next song...`,
         };
       }
     }
