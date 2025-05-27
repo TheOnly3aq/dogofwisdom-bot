@@ -10,6 +10,7 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
+const { initializeMusicModule } = require("./music");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -38,6 +39,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates, // Required for music functionality
   ],
   partials: [Partials.Channel, Partials.Message, Partials.User],
 });
@@ -218,6 +220,10 @@ client.once("ready", async () => {
     `Scheduled to send daily message at: ${config.cronSchedule} (${config.timezone})`
   );
 
+  // Initialize the music module
+  console.log("Initializing music module...");
+  musicModule = initializeMusicModule(client);
+
   // Initialize logging system first, before any logging calls
   console.log("Initializing logging system...");
   initializeLogger(client, config);
@@ -256,9 +262,12 @@ client.once("ready", async () => {
 
     const rest = new REST({ version: "10" }).setToken(config.token);
 
+    // Add music commands to the commands array
+    const allCommands = [...commands, ...musicModule.commands];
+
     // Register commands globally (for all guilds)
     await rest.put(Routes.applicationCommands(client.user.id), {
-      body: commands,
+      body: allCommands,
     });
 
     console.log("Successfully reloaded application (/) commands.");
@@ -469,6 +478,9 @@ const {
 
 // Store created categories and channels for each guild
 const guildCategories = new Map();
+
+// Store the music module
+let musicModule;
 
 // Function to prepare categories 5 minutes before sending the message
 async function prepareCategories() {
