@@ -22,6 +22,7 @@ const {
 } = require("@discordjs/voice");
 const libsodium = require("libsodium-wrappers");
 const fallbackPlayer = require("./fallbackPlayer");
+const ytdlpHandler = require("./ytdlpHandler");
 
 // Initialize libsodium and fallback player
 (async () => {
@@ -455,7 +456,7 @@ async function playNext(guildId) {
       };
     }
 
-    // Try to play using play-dl first (most reliable)
+    // Try to play using yt-dlp (most reliable)
     try {
       console.log(`Attempting to play: ${nextSong.url}`);
 
@@ -463,83 +464,63 @@ async function playNext(guildId) {
         throw new Error("Song URL is undefined");
       }
 
-      // Try to get a fresh stream URL using play-dl
-      const streamInfo = await play.stream(nextSong.url, {
-        discordPlayerCompatibility: true,
-        quality: 2, // Use high quality audio
-      });
-
-      if (!streamInfo || !streamInfo.stream) {
-        throw new Error("Failed to create stream with play-dl");
-      }
-
-      console.log("Successfully created stream with play-dl");
-
-      // Create the audio resource
-      const resource = createAudioResource(streamInfo.stream, {
-        inputType: streamInfo.type,
-        inlineVolume: true,
-      });
-      resource.volume.setVolume(1);
-
-      // Play the audio
-      player.play(resource);
-
-      return {
-        success: true,
-        message: `Now playing: **${nextSong.title}**`,
-      };
-    } catch (playDlError) {
-      console.error(`play-dl error: ${playDlError.message}`);
-
-      // Fallback to ytdl-core with more robust error handling
+      // Try to get a stream using yt-dlp
       try {
-        console.log(`Falling back to ytdl-core for: ${nextSong.url}`);
+        console.log(`Using yt-dlp for: ${nextSong.url}`);
 
-        if (!nextSong.url) {
-          throw new Error("Song URL is undefined");
+        // Check if yt-dlp is installed
+        const { execSync } = require("child_process");
+        try {
+          execSync("yt-dlp --version", { stdio: "ignore" });
+          console.log("yt-dlp is installed");
+        } catch (error) {
+          console.error(
+            "yt-dlp is not installed, falling back to other methods"
+          );
+          throw new Error("yt-dlp is not installed");
         }
 
-        // Use more robust ytdl options
-        const ytdlOptions = {
-          filter: "audioonly",
-          quality: "highestaudio",
-          highWaterMark: 1 << 25, // 32MB buffer
-          requestOptions: {
-            headers: {
-              // Add a user agent to avoid being blocked
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-              Accept:
-                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-              "Accept-Language": "en-US,en;q=0.5",
-            },
-          },
-        };
-
-        console.log(
-          "Creating ytdl stream with options:",
-          JSON.stringify(ytdlOptions)
+        // Use our yt-dlp handler
+        const { resource, videoInfo } = await ytdlpHandler.createAudioStream(
+          nextSong.url
         );
 
-        // Try to get a fresh stream
-        const ytdlStream = ytdl(nextSong.url, ytdlOptions);
+        // Play the audio
+        player.play(resource);
 
-        if (!ytdlStream) {
-          throw new Error("Failed to create ytdl stream");
+        return {
+          success: true,
+          message: `Now playing: **${videoInfo.title || nextSong.title}**`,
+        };
+      } catch (ytdlpError) {
+        console.error(`yt-dlp error: ${ytdlpError.message}`);
+        throw ytdlpError; // Propagate to next fallback
+      }
+    } catch (ytdlpError) {
+      console.error(`yt-dlp error: ${ytdlpError.message}`);
+
+      // Fallback to play-dl
+      try {
+        console.log(`Falling back to play-dl for: ${nextSong.url}`);
+
+        // Try to get a fresh stream URL using play-dl
+        const streamInfo = await play.stream(nextSong.url, {
+          discordPlayerCompatibility: true,
+          quality: 2, // Use high quality audio
+        });
+
+        if (!streamInfo || !streamInfo.stream) {
+          throw new Error("Failed to create stream with play-dl");
         }
 
-        // Add error handler to the stream
-        ytdlStream.on("error", (err) => {
-          console.error(`ytdl stream error: ${err.message}`);
-        });
+        console.log("Successfully created stream with play-dl");
 
         // Create the audio resource
-        const resource = createAudioResource(ytdlStream, {
-          inputType: undefined, // Let Discord.js figure it out
+        const resource = createAudioResource(streamInfo.stream, {
+          inputType: streamInfo.type,
           inlineVolume: true,
         });
-        resource.volume.setVolume(1);
+        resource.volume.setVolume(0.5);
 
         // Play the audio
         player.play(resource);
@@ -548,15 +529,62 @@ async function playNext(guildId) {
           success: true,
           message: `Now playing: **${nextSong.title}**`,
         };
-      } catch (ytdlError) {
-        console.error(`ytdl-core error: ${ytdlError.message}`);
-        console.error(
-          `Failed to play song with both methods: ${nextSong.title}`
-        );
+      } catch (playDlError) {
+        console.error(`play-dl error: ${playDlError.message}`);
 
-        // Use our fallback player as a last resort
-        console.log("Using fallback player as last resort");
-        return await fallbackPlayer.playWithFallback(player, nextSong);
+        // Fallback to ytdl-core as a last resort
+        try {
+          console.log(`Falling back to ytdl-core for: ${nextSong.url}`);
+
+          // Use more robust ytdl options
+          const ytdlOptions = {
+            filter: "audioonly",
+            quality: "highestaudio",
+            highWaterMark: 1 << 25, // 32MB buffer
+            requestOptions: {
+              headers: {
+                // Add a user agent to avoid being blocked
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                Accept:
+                  "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+              },
+            },
+          };
+
+          // Try to get a fresh stream
+          const ytdlStream = ytdl(nextSong.url, ytdlOptions);
+
+          // Add error handler to the stream
+          ytdlStream.on("error", (err) => {
+            console.error(`ytdl stream error: ${err.message}`);
+          });
+
+          // Create the audio resource
+          const resource = createAudioResource(ytdlStream, {
+            inputType: undefined, // Let Discord.js figure it out
+            inlineVolume: true,
+          });
+          resource.volume.setVolume(0.5);
+
+          // Play the audio
+          player.play(resource);
+
+          return {
+            success: true,
+            message: `Now playing: **${nextSong.title}**`,
+          };
+        } catch (ytdlError) {
+          console.error(`ytdl-core error: ${ytdlError.message}`);
+          console.error(
+            `Failed to play song with all methods: ${nextSong.title}`
+          );
+
+          // Use our fallback player as a last resort
+          console.log("Using fallback player as last resort");
+          return await fallbackPlayer.playWithFallback(player, nextSong);
+        }
       }
     }
   } catch (error) {

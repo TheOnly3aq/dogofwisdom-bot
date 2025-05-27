@@ -28,5 +28,8 @@
     "opusscript": "^0.0.8",
     "play-dl": "^1.9.7",
     "ytdl-core": "^4.11.5"
+  },
+  "optionalDependencies": {
+    "yt-dlp-exec": "^1.0.2"
   }
 }

@@ -258,30 +258,51 @@ Using random channel #general (no prepared channel found)
 
 If you encounter issues with the music player, try the following:
 
-1. **YouTube API Restrictions**: YouTube occasionally changes their API, which can cause issues with music bots. If you're experiencing problems:
+1. **Install yt-dlp for Better Reliability**: The bot now supports using yt-dlp, which is more reliable for YouTube playback:
+   ```bash
+   # On Linux/macOS
+   sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+   sudo chmod a+rx /usr/local/bin/yt-dlp
+   
+   # On Windows (using PowerShell)
+   Invoke-WebRequest -Uri https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile "$env:LOCALAPPDATA\Microsoft\WindowsApps\yt-dlp.exe"
+   ```
+   
+   Alternatively, you can install the Node.js wrapper:
+   ```bash
+   npm install yt-dlp-exec
+   ```
+
+2. **YouTube API Restrictions**: YouTube occasionally changes their API, which can cause issues with music bots. If you're experiencing problems:
    - Try using a different YouTube URL
    - Use a direct YouTube URL instead of a search query
    - Check if the video is age-restricted or region-locked
    - Be aware that YouTube actively works to prevent bots from playing music, so functionality may be limited
 
-2. **Fallback Player**: The bot includes a fallback player that will attempt to play a silent audio stream when YouTube API restrictions prevent normal playback. When this happens, you'll see a message like:
+3. **Fallback Methods**: The bot now tries multiple methods to play YouTube videos:
+   1. First tries yt-dlp (if installed)
+   2. Then falls back to play-dl
+   3. Then falls back to ytdl-core
+   4. Finally uses a silent fallback player if all else fails
+   
+   When all methods fail, you'll see a message like:
    ```
    ⚠️ YouTube playback is currently experiencing issues. We're working on a fix.
    ```
 
-3. **Voice Connection Issues**:
+4. **Voice Connection Issues**:
    - Make sure the bot has the "Connect" and "Speak" permissions in the voice channel
    - Try having the bot leave and rejoin the voice channel
    - Check if your Discord server region is compatible with the bot's hosting region
 
-4. **Package Dependencies**: If you're hosting the bot yourself, make sure you have the latest versions of the required packages:
+5. **Package Dependencies**: If you're hosting the bot yourself, make sure you have the latest versions of the required packages:
    ```bash
    npm install @discordjs/voice@latest ytdl-core@latest play-dl@latest ffmpeg-static@latest libsodium-wrappers@latest opusscript@latest
    ```
 
-5. **Error Messages**: Check the bot's console logs for more detailed error messages that can help diagnose the issue.
+6. **Error Messages**: Check the bot's console logs for more detailed error messages that can help diagnose the issue.
 
-6. **Alternative Solutions**: If you need reliable music playback, consider using a dedicated music bot service that has licensing agreements with YouTube or other music providers.
+7. **Alternative Solutions**: If you need reliable music playback, consider using a dedicated music bot service that has licensing agreements with YouTube or other music providers.
 
 ## License
 
