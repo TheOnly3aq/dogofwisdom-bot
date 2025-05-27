@@ -8,8 +8,13 @@ const {
   VoiceConnectionStatus,
   entersState,
   NoSubscriberBehavior,
-  demuxProbe,
 } = require("@discordjs/voice");
+
+// Configure play-dl to use cookies and better user agent
+play.setToken({
+  useragent:
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+});
 
 // Store active connections and players for each guild
 const connections = new Map();
@@ -111,64 +116,99 @@ function leaveChannel(guildId) {
 // Function to play a YouTube video
 async function playYouTube(context, url) {
   try {
-    // Check if the URL is valid
-    if (!play.yt_validate(url)) {
+    console.log(`Received request to play: ${url}`);
+
+    // Try to extract video ID first for better validation
+    let videoId;
+    try {
+      videoId = ytdl.getVideoID(url);
+      console.log(`Extracted video ID: ${videoId}`);
+      // Normalize URL to standard format
+      url = `https://www.youtube.com/watch?v=${videoId}`;
+    } catch (idError) {
+      console.error("Error extracting video ID:", idError);
+      // Continue with original URL, will validate below
+    }
+
+    // Check if the URL is valid using both libraries for better reliability
+    const isValidYtdl = ytdl.validateURL(url);
+    const isValidPlayDl = play.yt_validate(url);
+
+    if (!isValidYtdl && !isValidPlayDl) {
+      console.error(
+        `Invalid YouTube URL: ${url} (ytdl: ${isValidYtdl}, play-dl: ${isValidPlayDl})`
+      );
       return { success: false, message: "Please provide a valid YouTube URL!" };
     }
+
+    console.log(`URL validation passed: ${url}`);
 
     // Get the guild ID
     const guildId = context.guild.id;
 
     // Check if the bot is in a voice channel
     if (!connections.has(guildId)) {
+      console.log("Bot not in voice channel, attempting to join...");
       const joinResult = await joinChannel(context);
       if (!joinResult.success) {
+        console.error("Failed to join voice channel:", joinResult.message);
         return joinResult;
       }
+      console.log("Successfully joined voice channel");
     }
 
+    // First try: Get video info using play-dl
     try {
-      // Get video info using play-dl
+      console.log("Attempting to get video info using play-dl...");
       const videoInfo = await play.video_info(url);
       const videoTitle = videoInfo.video_details.title;
+      const durationInSec = videoInfo.video_details.durationInSec;
 
       // Log video details for debugging
       console.log(
-        `Video info retrieved: ${videoTitle} (Duration: ${videoInfo.video_details.durationInSec}s)`
+        `Video info retrieved: ${videoTitle} (Duration: ${durationInSec}s)`
       );
 
-      // Add special flag for very short videos (like "Dog of Wisdom")
-      const isShortVideo = videoInfo.video_details.durationInSec < 60; // Less than 1 minute
+      // Add special flag for very short videos
+      const isShortVideo = durationInSec < 60; // Less than 1 minute
+      if (isShortVideo) {
+        console.log("This is a short video, will use special handling");
+      }
 
       // Add to queue
       const queue = queues.get(guildId);
       const queueItem = {
         url,
         title: videoTitle,
-        isShortVideo, // Flag to use special handling for short videos
+        isShortVideo,
+        videoId,
       };
       queue.push(queueItem);
+      console.log(`Added to queue: ${videoTitle}`);
 
       // If nothing is playing, start playing
       const player = players.get(guildId);
       if (player.state.status === AudioPlayerStatus.Idle) {
+        console.log("Player is idle, starting playback immediately");
         return await playNext(guildId);
       } else {
+        console.log(
+          `Player is busy, added to queue at position ${queue.length}`
+        );
         return {
           success: true,
           message: `Added to queue: ${videoTitle}`,
           position: queue.length,
         };
       }
-    } catch (infoError) {
-      console.error("Error getting video info with play-dl:", infoError);
+    } catch (playDlError) {
+      console.error("Error getting video info with play-dl:", playDlError);
 
+      // Second try: Fallback to ytdl-core for getting info
       try {
-        // Fallback to ytdl-core for getting info
+        console.log("Falling back to ytdl-core for video info...");
         const ytdlInfo = await ytdl.getInfo(url);
         const videoTitle = ytdlInfo.videoDetails.title;
-
-        // Check if this is a short video
         const durationInSec = parseInt(ytdlInfo.videoDetails.lengthSeconds);
         const isShortVideo = durationInSec < 60; // Less than 1 minute
 
@@ -182,43 +222,73 @@ async function playYouTube(context, url) {
           url,
           title: videoTitle,
           isShortVideo,
+          videoId,
         };
         queue.push(queueItem);
+        console.log(`Added to queue using fallback: ${videoTitle}`);
 
         // If nothing is playing, start playing
         const player = players.get(guildId);
         if (player.state.status === AudioPlayerStatus.Idle) {
+          console.log(
+            "Player is idle, starting playback immediately (fallback)"
+          );
           return await playNext(guildId);
         } else {
+          console.log(
+            `Player is busy, added to queue at position ${queue.length} (fallback)`
+          );
           return {
             success: true,
             message: `Added to queue: ${videoTitle} (using fallback)`,
             position: queue.length,
           };
         }
-      } catch (fallbackInfoError) {
-        console.error("Fallback info retrieval failed:", fallbackInfoError);
+      } catch (ytdlError) {
+        console.error("Fallback info retrieval failed:", ytdlError);
 
-        // Last resort: Use the URL as the title
-        const videoId = ytdl.getVideoID(url);
+        // Last resort: Use the video ID as the title
+        if (!videoId) {
+          try {
+            videoId = ytdl.getVideoID(url);
+          } catch (finalIdError) {
+            console.error(
+              "Final attempt to extract video ID failed:",
+              finalIdError
+            );
+            return {
+              success: false,
+              message:
+                "Could not process this YouTube URL. Please try a different video.",
+            };
+          }
+        }
+
         const simplifiedTitle = `YouTube Video (${videoId})`;
-
         console.log(`Using simplified title for video: ${simplifiedTitle}`);
 
-        // Add to queue with simplified title and assume it might be a short video
+        // Add to queue with simplified title
         const queue = queues.get(guildId);
         const queueItem = {
           url,
           title: simplifiedTitle,
           isShortVideo: true, // Assume it's a short video for special handling
+          videoId,
         };
         queue.push(queueItem);
+        console.log(`Added to queue using last resort: ${simplifiedTitle}`);
 
         // If nothing is playing, start playing
         const player = players.get(guildId);
         if (player.state.status === AudioPlayerStatus.Idle) {
+          console.log(
+            "Player is idle, starting playback immediately (last resort)"
+          );
           return await playNext(guildId);
         } else {
+          console.log(
+            `Player is busy, added to queue at position ${queue.length} (last resort)`
+          );
           return {
             success: true,
             message: `Added to queue: ${simplifiedTitle}`,
@@ -252,27 +322,118 @@ async function playNext(guildId) {
       return { success: false, message: "No audio player found!" };
     }
 
+    console.log(`Attempting to play: ${nextSong.title} (${nextSong.url})`);
+
+    // First try: play-dl (most reliable)
     try {
-      // Check if this is a short video that might need special handling
-      if (nextSong.isShortVideo) {
-        console.log(
-          `Playing short video: ${nextSong.title} - Using special handling`
-        );
+      console.log("Attempting to play using play-dl...");
+
+      // Extract video ID for better compatibility
+      let videoId;
+      try {
+        videoId = ytdl.getVideoID(nextSong.url);
+        console.log(`Extracted video ID: ${videoId}`);
+      } catch (idError) {
+        console.error("Error extracting video ID:", idError);
+        videoId = null;
       }
 
-      // Use play-dl to stream the YouTube video
-      const stream = await play.stream(nextSong.url, {
+      // Use the video ID if available, otherwise use the original URL
+      const playUrl = videoId
+        ? `https://www.youtube.com/watch?v=${videoId}`
+        : nextSong.url;
+
+      // Stream options based on video length
+      const streamOptions = {
         discordPlayerCompatibility: true,
         seek: 0,
-        quality: nextSong.isShortVideo ? 2 : 0, // Use lower quality for short videos
-      });
+        quality: nextSong.isShortVideo ? 1 : 0, // Lower quality for short videos
+      };
 
+      // Get the stream
+      const stream = await play.stream(playUrl, streamOptions);
+
+      // Create the audio resource
       const resource = createAudioResource(stream.stream, {
         inputType: stream.type,
         inlineVolume: true,
       });
 
-      if (resource) {
+      if (!resource) {
+        throw new Error("Failed to create audio resource");
+      }
+
+      // Set volume to 100%
+      if (resource.volume) {
+        resource.volume.setVolume(1);
+      }
+
+      // Play the audio
+      player.play(resource);
+
+      // Store the currently playing song
+      nowPlaying.set(guildId, nextSong);
+
+      console.log(`Successfully playing: ${nextSong.title} using play-dl`);
+
+      return {
+        success: true,
+        message: `Now playing: ${nextSong.title}`,
+        title: nextSong.title,
+      };
+    } catch (playDlError) {
+      console.error("Error playing with play-dl:", playDlError);
+
+      // Second try: ytdl-core with specific options
+      try {
+        console.log("Falling back to ytdl-core...");
+
+        // Extract video ID for better compatibility
+        let videoId;
+        try {
+          videoId = ytdl.getVideoID(nextSong.url);
+        } catch (idError) {
+          console.error("Error extracting video ID:", idError);
+          throw new Error("Invalid YouTube URL");
+        }
+
+        // Use a direct YouTube URL
+        const directUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        console.log(`Using direct URL: ${directUrl}`);
+
+        // Create the stream with optimal options
+        const ytdlStream = ytdl(directUrl, {
+          filter: "audioonly",
+          quality: "lowestaudio", // Always use lowest quality for better reliability
+          highWaterMark: 1 << 25, // 32MB buffer
+          dlChunkSize: 0, // Get the entire file as a single chunk
+          requestOptions: {
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+              Accept:
+                "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          },
+        });
+
+        // Handle stream errors
+        ytdlStream.on("error", (error) => {
+          console.error(`ytdl stream error: ${error.message}`);
+          // Try to play the next song if this one fails
+          setTimeout(() => playNext(guildId), 1000);
+        });
+
+        // Create the audio resource
+        const resource = createAudioResource(ytdlStream, {
+          inlineVolume: true,
+        });
+
+        if (!resource) {
+          throw new Error("Failed to create audio resource");
+        }
+
         // Set volume to 100%
         if (resource.volume) {
           resource.volume.setVolume(1);
@@ -284,138 +445,26 @@ async function playNext(guildId) {
         // Store the currently playing song
         nowPlaying.set(guildId, nextSong);
 
-        return {
-          success: true,
-          message: `Now playing: ${nextSong.title}`,
-          title: nextSong.title,
-        };
-      } else {
-        console.error("Failed to create audio resource");
-        return { success: false, message: "Failed to create audio resource" };
-      }
-    } catch (streamError) {
-      console.error("Error creating stream with play-dl:", streamError);
-
-      // Try fallback to ytdl-core
-      try {
-        console.log(
-          `Trying fallback to ytdl-core for ${
-            nextSong.isShortVideo ? "short video" : "normal video"
-          }...`
-        );
-        const fallbackStream = ytdl(nextSong.url, {
-          filter: "audioonly",
-          quality: nextSong.isShortVideo ? "lowestaudio" : "highestaudio", // Use lower quality for short videos
-          highWaterMark: 1 << 25, // 32MB buffer
-        });
-
-        // Handle stream errors
-        fallbackStream.on("error", (error) => {
-          console.error(`Fallback stream error: ${error.message}`);
-          // Try to play the next song if this one fails
-          playNext(guildId);
-        });
-
-        const resource = createAudioResource(fallbackStream, {
-          inlineVolume: true,
-        });
-
-        // Play the audio
-        player.play(resource);
-
-        // Store the currently playing song
-        nowPlaying.set(guildId, nextSong);
+        console.log(`Successfully playing: ${nextSong.title} using ytdl-core`);
 
         return {
           success: true,
           message: `Now playing: ${nextSong.title} (fallback method)`,
           title: nextSong.title,
         };
-      } catch (fallbackError) {
-        console.error("Fallback streaming method failed:", fallbackError);
+      } catch (ytdlError) {
+        console.error("Error playing with ytdl-core:", ytdlError);
 
-        // Try a third approach with different ytdl options
-        try {
-          console.log(
-            `Trying last resort streaming method for ${nextSong.title}...`
-          );
+        // Skip to the next song
+        console.log(
+          `Couldn't play ${nextSong.title}, skipping to next song...`
+        );
+        setTimeout(() => playNext(guildId), 1000);
 
-          // For short videos like "Dog of Wisdom", try a different approach
-          let lastResortStream;
-
-          if (nextSong.isShortVideo) {
-            console.log("Using special handling for short video");
-
-            // Try with a direct YouTube URL format
-            const videoId = ytdl.getVideoID(nextSong.url);
-            const directUrl = `https://www.youtube.com/watch?v=${videoId}`;
-            console.log(`Using direct URL: ${directUrl}`);
-
-            lastResortStream = ytdl(directUrl, {
-              filter: "audioonly",
-              quality: "lowestaudio",
-              highWaterMark: 1 << 25,
-              dlChunkSize: 0,
-              requestOptions: {
-                headers: {
-                  "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                },
-              },
-            });
-          } else {
-            // Standard approach for normal videos
-            lastResortStream = ytdl(nextSong.url, {
-              filter: "audioonly",
-              quality: "lowestaudio", // Always use lowest quality for last resort
-              highWaterMark: 1 << 25,
-              dlChunkSize: 0, // Get the entire file as a single chunk
-              requestOptions: {
-                headers: {
-                  "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                  Accept:
-                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                },
-              },
-            });
-          }
-
-          lastResortStream.on("error", (error) => {
-            console.error(`Last resort stream error: ${error.message}`);
-            // Skip to the next song if this one fails
-            setTimeout(() => playNext(guildId), 1000);
-          });
-
-          const resource = createAudioResource(lastResortStream, {
-            inlineVolume: true,
-          });
-
-          // Play the audio
-          player.play(resource);
-
-          // Store the currently playing song
-          nowPlaying.set(guildId, nextSong);
-
-          return {
-            success: true,
-            message: `Now playing: ${nextSong.title} (last resort method)`,
-            title: nextSong.title,
-          };
-        } catch (lastResortError) {
-          console.error(
-            "Last resort streaming method failed:",
-            lastResortError
-          );
-
-          // Skip to the next song
-          setTimeout(() => playNext(guildId), 1000);
-
-          return {
-            success: false,
-            message: `Couldn't play ${nextSong.title}, skipping to next song...`,
-          };
-        }
+        return {
+          success: false,
+          message: `Couldn't play ${nextSong.title}, skipping to next song...`,
+        };
       }
     }
   } catch (error) {
