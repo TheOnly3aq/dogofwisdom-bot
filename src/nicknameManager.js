@@ -145,9 +145,46 @@ async function changeNicknamesToDutchSnacks(
       result.groupSnack = groupSnack;
     }
 
+    // First, handle the bot's own nickname
+    try {
+      // Determine which snack to use for the bot
+      let botSnackToUse;
+      if (useGroupSnack) {
+        // Use the group snack
+        botSnackToUse = groupSnack;
+      } else {
+        // Get a random Dutch snack
+        botSnackToUse =
+          dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+      }
+
+      // Store the original nickname for logging
+      const originalBotNickname = botMember.nickname || botMember.user.username;
+
+      // Set the bot's nickname
+      await botMember.setNickname(
+        botSnackToUse,
+        "Weekly Dutch snack nickname change"
+      );
+
+      console.log(
+        `Changed bot's own nickname from "${originalBotNickname}" to "${botSnackToUse}"`
+      );
+      result.success++;
+    } catch (error) {
+      console.error(`Error changing bot's own nickname:`, error);
+      result.failed++;
+      result.errors.push(`Error for bot: ${error.message}`);
+    }
+
     // For each member, set a Dutch snack as nickname
     for (const [memberId, member] of members.entries()) {
       try {
+        // Skip the bot as we already handled it
+        if (member.id === botMember.id) {
+          continue;
+        }
+
         // Check if member has higher roles than the bot (can't change their nicknames)
         if (member.roles.highest.position >= botMember.roles.highest.position) {
           // Determine which snack would have been used
