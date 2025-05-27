@@ -1,7 +1,6 @@
 const { Player } = require('discord-player');
 const { GuildQueue } = require('discord-player');
-const { QueryType } = require('discord-player');
-const { YouTubeExtractor } = require("@discord-player/extractor");
+const { QueryType } = require("discord-player");
 
 /**
  * Initialize the Discord Player
@@ -15,8 +14,13 @@ async function initializePlayer(client) {
   // Add event listeners
   setupPlayerEvents(player);
 
-  // Initialize the player with YouTube extractor
-  await player.extractors.register(YouTubeExtractor, {});
+  // For discord-player v6.6.7, we don't need to register extractors
+  try {
+    // This version of discord-player has built-in YouTube support
+    console.log("Player initialized with built-in YouTube support");
+  } catch (error) {
+    console.log("Error initializing player:", error.message);
+  }
 
   return player;
 }
@@ -26,51 +30,52 @@ async function initializePlayer(client) {
  * @param {Player} player - The Discord Player instance
  */
 function setupPlayerEvents(player) {
-    // Track start event
-    player.events.on('playerStart', (queue, track) => {
-        queue.metadata.send(`🎵 Now playing: **${track.title}** by **${track.author}**`);
-    });
+  // Track start event
+  player.on("trackStart", (queue, track) => {
+    queue.metadata.send(
+      `🎵 Now playing: **${track.title}** by **${track.author}**`
+    );
+  });
 
-    // Track add event
-    player.events.on('audioTrackAdd', (queue, track) => {
-        queue.metadata.send(`🎵 Added to queue: **${track.title}** by **${track.author}**`);
-    });
+  // Track add event
+  player.on("trackAdd", (queue, track) => {
+    queue.metadata.send(
+      `🎵 Added to queue: **${track.title}** by **${track.author}**`
+    );
+  });
 
-    // Playlist add event
-    player.events.on('audioTracksAdd', (queue, tracks) => {
-        queue.metadata.send(`🎵 Added ${tracks.length} tracks to the queue`);
-    });
+  // Playlist add event
+  player.on("tracksAdd", (queue, tracks) => {
+    queue.metadata.send(`🎵 Added ${tracks.length} tracks to the queue`);
+  });
 
-    // Error events
-    player.events.on('error', (queue, error) => {
-        console.error(`[Player Error] ${error.message}`);
-        queue.metadata.send(`❌ Error: ${error.message}`);
-    });
+  // Error events
+  player.on("error", (queue, error) => {
+    console.error(`[Player Error] ${error.message}`);
+    queue.metadata.send(`❌ Error: ${error.message}`);
+  });
 
-    player.events.on('playerError', (queue, error) => {
-        console.error(`[Player Error] ${error.message}`);
-        queue.metadata.send(`❌ Player Error: ${error.message}`);
-    });
+  player.on("connectionError", (queue, error) => {
+    console.error(`[Connection Error] ${error.message}`);
+    queue.metadata.send(`❌ Connection Error: ${error.message}`);
+  });
 
-    player.events.on('connectionError', (queue, error) => {
-        console.error(`[Connection Error] ${error.message}`);
-        queue.metadata.send(`❌ Connection Error: ${error.message}`);
-    });
+  // Queue end event
+  player.on("queueEnd", (queue) => {
+    queue.metadata.send("✅ Queue finished! Use `/play` to add more songs.");
+  });
 
-    // Queue end event
-    player.events.on('emptyQueue', (queue) => {
-        queue.metadata.send('✅ Queue finished! Use `/play` to add more songs.');
-    });
+  // Bot disconnect event
+  player.on("botDisconnect", (queue) => {
+    queue.metadata.send(
+      "❌ I was manually disconnected from the voice channel, clearing queue!"
+    );
+  });
 
-    // Bot disconnect event
-    player.events.on('disconnect', (queue) => {
-        queue.metadata.send('❌ I was manually disconnected from the voice channel, clearing queue!');
-    });
-
-    // Channel empty event
-    player.events.on('emptyChannel', (queue) => {
-        queue.metadata.send('❌ Nobody is in the voice channel, leaving...');
-    });
+  // Channel empty event
+  player.on("channelEmpty", (queue) => {
+    queue.metadata.send("❌ Nobody is in the voice channel, leaving...");
+  });
 }
 
 /**
@@ -79,107 +84,152 @@ function setupPlayerEvents(player) {
  * @param {string} query - The song URL or search query
  */
 async function playSong(interaction, query) {
-    try {
-        // Defer the reply to give us time to process
-        await interaction.deferReply();
+  try {
+    // Defer the reply to give us time to process
+    await interaction.deferReply();
 
-        // Get the member
-        const member = interaction.member;
-        
-        // Check if the member is in a voice channel
-        if (!member.voice.channel) {
-            return interaction.followUp({
-                content: '❌ You need to be in a voice channel to play music!',
-                ephemeral: true
-            });
-        }
+    // Get the member
+    const member = interaction.member;
 
-        // Check if the bot has permission to join and speak
-        const permissions = member.voice.channel.permissionsFor(interaction.client.user);
-        if (!permissions.has('Connect') || !permissions.has('Speak')) {
-            return interaction.followUp({
-                content: '❌ I need permissions to join and speak in your voice channel!',
-                ephemeral: true
-            });
-        }
-
-        // Get the player instance from global
-        const player = global.player;
-        if (!player) {
-            return interaction.followUp({
-                content: '❌ Music player is not initialized!',
-                ephemeral: true
-            });
-        }
-
-        // Create a queue for this guild
-        const queue = player.nodes.create(interaction.guild, {
-            metadata: interaction.channel, // We can access this metadata object from the queue
-            leaveOnEmpty: true,
-            leaveOnEmptyCooldown: 5000, // 5 seconds
-            leaveOnEnd: true,
-            leaveOnEndCooldown: 300000, // 5 minutes
-            volume: 80
-        });
-
-        try {
-            // Connect to the voice channel
-            if (!queue.connection) {
-                await queue.connect(member.voice.channel);
-            }
-        } catch (error) {
-            // Destroy the queue if we failed to connect
-            queue.delete();
-            return interaction.followUp({
-                content: `❌ Could not join your voice channel: ${error.message}`,
-                ephemeral: true
-            });
-        }
-
-        // Search for the song
-        const searchResult = await player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: QueryType.AUTO
-        });
-
-        // If no tracks were found
-        if (!searchResult || !searchResult.tracks.length) {
-            return interaction.followUp({
-                content: '❌ No results found!',
-                ephemeral: true
-            });
-        }
-
-        // Add the track(s) to the queue
-        try {
-            if (searchResult.playlist) {
-                // Add the playlist to the queue
-                queue.addTrack(searchResult.tracks);
-                await interaction.followUp(`✅ Added playlist **${searchResult.playlist.title}** with ${searchResult.tracks.length} songs to the queue!`);
-            } else {
-                // Add the track to the queue
-                queue.addTrack(searchResult.tracks[0]);
-                await interaction.followUp(`✅ Added **${searchResult.tracks[0].title}** to the queue!`);
-            }
-
-            // Play the queue if it's not already playing
-            if (!queue.isPlaying()) {
-                await queue.node.play();
-            }
-        } catch (error) {
-            console.error('Error adding track to queue:', error);
-            return interaction.followUp({
-                content: `❌ Error adding track to queue: ${error.message}`,
-                ephemeral: true
-            });
-        }
-    } catch (error) {
-        console.error('Error in playSong function:', error);
-        return interaction.followUp({
-            content: `❌ An error occurred: ${error.message}`,
-            ephemeral: true
-        });
+    // Check if the member is in a voice channel
+    if (!member.voice.channel) {
+      return interaction.followUp({
+        content: "❌ You need to be in a voice channel to play music!",
+        ephemeral: true,
+      });
     }
+
+    // Check if the bot has permission to join and speak
+    const permissions = member.voice.channel.permissionsFor(
+      interaction.client.user
+    );
+    if (!permissions.has("Connect") || !permissions.has("Speak")) {
+      return interaction.followUp({
+        content:
+          "❌ I need permissions to join and speak in your voice channel!",
+        ephemeral: true,
+      });
+    }
+
+    // Get the player instance from global
+    console.log("Accessing global.player in playSong function");
+    console.log("global.player exists:", global.player ? "Yes" : "No");
+    console.log("global.player type:", typeof global.player);
+
+    const player = global.player;
+    if (!player) {
+      console.log("Player is not initialized in playSong function");
+      return interaction.followUp({
+        content: "❌ Music player is not initialized!",
+        ephemeral: true,
+      });
+    }
+
+    // Create a queue for this guild
+    const queue = player.createQueue(interaction.guild, {
+      metadata: interaction.channel, // We can access this metadata object from the queue
+      leaveOnEmpty: true,
+      leaveOnEmptyCooldown: 5000, // 5 seconds
+      leaveOnEnd: true,
+      leaveOnEndCooldown: 300000, // 5 minutes
+      volume: 80,
+    });
+
+    try {
+      // Connect to the voice channel
+      if (!queue.connection) {
+        await queue.connect(member.voice.channel);
+      }
+    } catch (error) {
+      // Destroy the queue if we failed to connect
+      queue.delete();
+      return interaction.followUp({
+        content: `❌ Could not join your voice channel: ${error.message}`,
+        ephemeral: true,
+      });
+    }
+
+    // Search for the song
+    let searchResult;
+    try {
+      // Check if the query is a YouTube URL
+      const isYouTubeUrl =
+        query.includes("youtube.com/") || query.includes("youtu.be/");
+
+      console.log("Searching for song:", query);
+      console.log("Is YouTube URL:", isYouTubeUrl);
+
+      // Use the appropriate search engine
+      searchResult = await player.search(query, {
+        requestedBy: interaction.user,
+        searchEngine: isYouTubeUrl ? QueryType.YOUTUBE_VIDEO : QueryType.AUTO,
+      });
+
+      console.log(
+        "Search result:",
+        searchResult
+          ? `Found ${searchResult.tracks.length} results`
+          : "No results"
+      );
+    } catch (error) {
+      console.log("Error searching for song:", error.message);
+      return interaction.followUp({
+        content: `❌ Error searching for song: ${error.message}`,
+        ephemeral: true,
+      });
+    }
+
+    // If no tracks were found
+    if (!searchResult || !searchResult.tracks.length) {
+      return interaction.followUp({
+        content: "❌ No results found!",
+        ephemeral: true,
+      });
+    }
+
+    // Add the track(s) to the queue
+    try {
+      console.log("Adding tracks to queue");
+
+      if (searchResult.playlist) {
+        // Add the playlist to the queue
+        console.log(
+          `Adding playlist with ${searchResult.tracks.length} tracks`
+        );
+        queue.addTrack(searchResult.tracks);
+        await interaction.followUp(
+          `✅ Added playlist **${searchResult.playlist.title}** with ${searchResult.tracks.length} songs to the queue!`
+        );
+      } else {
+        // Add the track to the queue
+        console.log(`Adding single track: ${searchResult.tracks[0].title}`);
+        queue.addTrack(searchResult.tracks[0]);
+        await interaction.followUp(
+          `✅ Added **${searchResult.tracks[0].title}** to the queue!`
+        );
+      }
+
+      // Play the queue if it's not already playing
+      if (!queue.playing) {
+        console.log("Starting playback");
+        await queue.play();
+      } else {
+        console.log("Queue is already playing");
+      }
+    } catch (error) {
+      console.error("Error adding track to queue:", error);
+      return interaction.followUp({
+        content: `❌ Error adding track to queue: ${error.message}`,
+        ephemeral: true,
+      });
+    }
+  } catch (error) {
+    console.error("Error in playSong function:", error);
+    return interaction.followUp({
+      content: `❌ An error occurred: ${error.message}`,
+      ephemeral: true,
+    });
+  }
 }
 
 /**
@@ -209,8 +259,8 @@ async function skipSong(interaction) {
         }
 
         // Get the queue for this guild
-        const queue = player.nodes.get(interaction.guildId);
-        if (!queue || !queue.isPlaying()) {
+        const queue = player.getQueue(interaction.guildId);
+        if (!queue || !queue.playing) {
             return interaction.reply({
                 content: '❌ No music is currently playing!',
                 ephemeral: true
@@ -218,8 +268,8 @@ async function skipSong(interaction) {
         }
 
         // Skip the current song
-        const currentTrack = queue.currentTrack;
-        queue.node.skip();
+        const currentTrack = queue.current;
+        const success = queue.skip();
         
         return interaction.reply(`✅ Skipped **${currentTrack.title}**!`);
     } catch (error) {
@@ -258,8 +308,8 @@ async function stopMusic(interaction) {
         }
 
         // Get the queue for this guild
-        const queue = player.nodes.get(interaction.guildId);
-        if (!queue) {
+        const queue = player.getQueue(interaction.guildId);
+        if (!queue || !queue.playing) {
             return interaction.reply({
                 content: '❌ No music is currently playing!',
                 ephemeral: true
@@ -267,7 +317,7 @@ async function stopMusic(interaction) {
         }
 
         // Clear the queue and stop the music
-        queue.delete();
+        queue.destroy();
         
         return interaction.reply('🛑 Stopped the music and cleared the queue!');
     } catch (error) {
@@ -295,8 +345,8 @@ async function showQueue(interaction) {
         }
 
         // Get the queue for this guild
-        const queue = player.nodes.get(interaction.guildId);
-        if (!queue || !queue.isPlaying()) {
+        const queue = player.getQueue(interaction.guildId);
+        if (!queue || !queue.playing) {
             return interaction.reply({
                 content: '❌ No music is currently playing!',
                 ephemeral: true
@@ -304,8 +354,8 @@ async function showQueue(interaction) {
         }
 
         // Get the current track and upcoming tracks
-        const currentTrack = queue.currentTrack;
-        const tracks = queue.tracks.toArray();
+        const currentTrack = queue.current;
+        const tracks = queue.tracks;
 
         // Create an embed for the queue
         const queueEmbed = {

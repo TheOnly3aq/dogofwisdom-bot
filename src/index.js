@@ -275,6 +275,11 @@ client.once("ready", async () => {
     console.log("Initializing Discord Player...");
     global.player = await discordPlayer.initializePlayer(client);
     console.log("Discord Player initialized successfully!");
+    console.log(
+      "Player object:",
+      global.player ? "Player exists" : "Player is null"
+    );
+    console.log("Player type:", typeof global.player);
   } catch (error) {
     console.error("Failed to initialize Discord Player:", error);
   }
