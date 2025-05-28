@@ -145,6 +145,25 @@ const commands = [
         .setMinValue(1)
         .setMaxValue(30)
     )
+    .addStringOption((option) =>
+      option
+        .setName("channel-type")
+        .setDescription("Type of channels to delete")
+        .setRequired(false)
+        .addChoices(
+          { name: "All channels", value: "all" },
+          { name: "Text channels only", value: "text" },
+          { name: "Voice channels only", value: "voice" }
+        )
+    )
+    .addBooleanOption((option) =>
+      option
+        .setName("bot-created-only")
+        .setDescription(
+          "Only delete channels created by the bot (default: true)"
+        )
+        .setRequired(false)
+    )
     .toJSON(),
 
   // Test owner DM (admin only)
@@ -501,14 +520,28 @@ client.once("ready", async () => {
           })`
         );
 
+        // Options for cleanup - only delete channels created by the bot
+        const cleanupOptions = {
+          channelType: "all",
+          botCreatedOnly: true,
+        };
+
         // Clean up channels older than 7 days
-        const oldCleanupStats = await cleanupOldChannels(client, 7);
+        const oldCleanupStats = await cleanupOldChannels(
+          client,
+          7,
+          cleanupOptions
+        );
         console.log(
           `Old channel cleanup completed! Deleted ${oldCleanupStats.channelsDeleted} channels and ${oldCleanupStats.categoriesDeleted} categories.`
         );
 
         // Clean up channels newer than 7 days
-        const newCleanupStats = await cleanupNewChannels(client, 7);
+        const newCleanupStats = await cleanupNewChannels(
+          client,
+          7,
+          cleanupOptions
+        );
         console.log(
           `New channel cleanup completed! Deleted ${newCleanupStats.channelsDeleted} channels and ${newCleanupStats.categoriesDeleted} categories.`
         );
@@ -1267,6 +1300,22 @@ client.on("interactionCreate", async (interaction) => {
         // Get the mode parameter (default to "old" if not provided)
         const mode = interaction.options.getString("mode") || "old";
 
+        // Get the channel type parameter (default to "all" if not provided)
+        const channelType =
+          interaction.options.getString("channel-type") || "all";
+
+        // Get the bot-created-only parameter (default to true if not provided)
+        const botCreatedOnly =
+          interaction.options.getBoolean("bot-created-only");
+        // If botCreatedOnly is null (not specified), default to true
+        const useBotCreatedOnly = botCreatedOnly !== false;
+
+        // Create options object for cleanup functions
+        const cleanupOptions = {
+          channelType: channelType,
+          botCreatedOnly: useBotCreatedOnly,
+        };
+
         let cleanupStats = {
           channelsDeleted: 0,
           categoriesDeleted: 0,
@@ -1278,9 +1327,14 @@ client.on("interactionCreate", async (interaction) => {
         // Run the cleanup based on the selected mode
         if (mode === "old" || mode === "both") {
           console.log(
-            `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days`
+            `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days` +
+              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly})`
           );
-          const oldCleanupStats = await cleanupOldChannels(client, days);
+          const oldCleanupStats = await cleanupOldChannels(
+            client,
+            days,
+            cleanupOptions
+          );
 
           // Add to total stats
           cleanupStats.channelsDeleted += oldCleanupStats.channelsDeleted;
@@ -1293,9 +1347,14 @@ client.on("interactionCreate", async (interaction) => {
 
         if (mode === "new" || mode === "both") {
           console.log(
-            `Manual channel cleanup triggered by ${interaction.user.tag} for channels newer than ${days} days`
+            `Manual channel cleanup triggered by ${interaction.user.tag} for channels newer than ${days} days` +
+              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly})`
           );
-          const newCleanupStats = await cleanupNewChannels(client, days);
+          const newCleanupStats = await cleanupNewChannels(
+            client,
+            days,
+            cleanupOptions
+          );
 
           // Add to total stats
           cleanupStats.channelsDeleted += newCleanupStats.channelsDeleted;
@@ -1314,6 +1373,8 @@ client.on("interactionCreate", async (interaction) => {
             `- Skipped ${cleanupStats.skipped} channels/categories\n` +
             `- Encountered ${cleanupStats.errors} errors\n\n` +
             `Mode: ${mode}\n` +
+            `Channel type: ${channelType}\n` +
+            `Bot created only: ${useBotCreatedOnly}\n` +
             modeDescription
         );
       } catch (error) {

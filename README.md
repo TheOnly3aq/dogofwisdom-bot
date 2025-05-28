@@ -129,9 +129,10 @@ To keep servers clean and organized:
 - Only channels created by the bot are affected
 - Empty categories created by the bot are also removed
 - Admins can manually trigger cleanup with the `/cleanup-channels` command with options:
-  - Delete old channels (older than specified days)
-  - Delete new channels (newer than specified days)
-  - Delete both old and new channels
+  - **Mode**: Delete old channels, new channels, or both
+  - **Days**: Delete channels older/newer than this many days (default: 7)
+  - **Channel Type**: Filter by text channels, voice channels, or all channels
+  - **Bot Created Only**: Option to only delete channels created by the bot
 
 ### Dutch Snack Nicknames
 
@@ -196,7 +197,7 @@ The bot supports both traditional prefix commands (starting with `!`) and Discor
 - `/test-group-snack` - Test the group snack event where everyone gets the same nickname (requires admin permissions)
 - `/check-timezone` - Check the current timezone configuration (requires admin permissions)
 - `/test-owner-dm` - Test sending a nickname suggestion DM to the server owner (requires admin permissions)
-- `/cleanup-channels [mode] [days]` - Delete channels created by the bot with options for old/new/both (requires admin permissions)
+- `/cleanup-channels [mode] [days] [channel-type] [bot-created-only]` - Delete channels with advanced filtering options (requires admin permissions)
 - `/send-dm` - Send a direct message to any user (requires admin permissions, works in DMs for bot owner)
 
 ### Using Slash Commands

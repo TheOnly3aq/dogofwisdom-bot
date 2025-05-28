@@ -183,13 +183,25 @@ function isNewerThan(channel, days) {
  * @param {Client} client - The Discord client
  * @param {number} days - Delete channels older than this many days or newer than this many days
  * @param {boolean} deleteOlder - If true, delete channels older than days, if false, delete channels newer than days
+ * @param {Object} options - Additional options for cleanup
+ * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
+ * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
-async function cleanupChannels(client, days = 7, deleteOlder = true) {
+async function cleanupChannels(
+  client,
+  days = 7,
+  deleteOlder = true,
+  options = {}
+) {
+  // Set default options
+  const channelType = options.channelType || "all";
+  const botCreatedOnly = options.botCreatedOnly !== false; // Default to true if not specified
+
   console.log(
-    `Starting cleanup of channels ${
+    `Starting cleanup of ${channelType} channels ${
       deleteOlder ? "older" : "newer"
-    } than ${days} days...`
+    } than ${days} days... (bot created only: ${botCreatedOnly})`
   );
 
   const stats = {
@@ -215,31 +227,63 @@ async function cleanupChannels(client, days = 7, deleteOlder = true) {
         // Get all channels in the guild
         const channels = await guild.channels.fetch();
 
-        // First, find and delete text/voice channels
-        for (const [channelId, channel] of channels
-          .filter((c) => c.type !== 4)
-          .entries()) {
-          // 4 is GUILD_CATEGORY
+        // First, find and delete text/voice channels based on the channelType option
+        // Discord.js channel types:
+        // 0: GUILD_TEXT, 2: GUILD_VOICE, 4: GUILD_CATEGORY, 5: GUILD_ANNOUNCEMENT,
+        // 13: GUILD_STAGE_VOICE, 15: GUILD_FORUM
+
+        // Filter channels based on the channelType option
+        let nonCategoryChannels = channels.filter((c) => c.type !== 4); // Not categories
+
+        if (channelType === "text") {
+          // Text channels (includes announcements and forums)
+          nonCategoryChannels = nonCategoryChannels.filter((c) =>
+            [0, 5, 15].includes(c.type)
+          );
+          console.log(`Filtering to text channels only`);
+        } else if (channelType === "voice") {
+          // Voice channels (includes stage channels)
+          nonCategoryChannels = nonCategoryChannels.filter((c) =>
+            [2, 13].includes(c.type)
+          );
+          console.log(`Filtering to voice channels only`);
+        }
+
+        for (const [channelId, channel] of nonCategoryChannels.entries()) {
           try {
-            // Check if the channel was created by the bot and meets the age criteria
+            // Check if the channel meets the age criteria
             const meetsAgeCriteria = deleteOlder
               ? isOlderThan(channel, days)
               : isNewerThan(channel, days);
 
-            if (isCreatedByBot(channel, client) && meetsAgeCriteria) {
+            // Check if the channel was created by the bot (if botCreatedOnly is true)
+            const isBotChannel =
+              !botCreatedOnly || isCreatedByBot(channel, client);
+
+            if (isBotChannel && meetsAgeCriteria) {
               console.log(
-                `Deleting ${deleteOlder ? "old" : "new"} channel #${
-                  channel.name
-                } (${channelId}) in ${guild.name}`
+                `Deleting ${deleteOlder ? "old" : "new"} ${getChannelTypeName(
+                  channel.type
+                )} channel #${channel.name} (${channelId}) in ${guild.name}`
               );
               await channel.delete(
-                `Automatic cleanup of ${
-                  deleteOlder ? "old" : "new"
-                } bot-created channels`
+                `Automatic cleanup of ${deleteOlder ? "old" : "new"} ${
+                  botCreatedOnly ? "bot-created" : ""
+                } channels`
               );
               stats.channelsDeleted++;
             } else {
               stats.skipped++;
+              if (!meetsAgeCriteria) {
+                console.log(
+                  `Skipped channel ${channel.name} - doesn't meet age criteria`
+                );
+              }
+              if (botCreatedOnly && !isBotChannel) {
+                console.log(
+                  `Skipped channel ${channel.name} - not created by bot`
+                );
+              }
             }
           } catch (error) {
             console.error(
@@ -249,41 +293,63 @@ async function cleanupChannels(client, days = 7, deleteOlder = true) {
           }
         }
 
-        // Then, find and delete empty categories
-        for (const [categoryId, category] of channels
-          .filter((c) => c.type === 4)
-          .entries()) {
-          // 4 is GUILD_CATEGORY
-          try {
-            // Check if the category was created by the bot, meets the age criteria, and is empty
-            const meetsAgeCriteria = deleteOlder
-              ? isOlderThan(category, days)
-              : isNewerThan(category, days);
+        // Only process categories if we're not filtering by channel type or if we're cleaning up everything
+        if (channelType === "all") {
+          // Then, find and delete empty categories
+          for (const [categoryId, category] of channels
+            .filter((c) => c.type === 4)
+            .entries()) {
+            // 4 is GUILD_CATEGORY
+            try {
+              // Check if the category meets the age criteria
+              const meetsAgeCriteria = deleteOlder
+                ? isOlderThan(category, days)
+                : isNewerThan(category, days);
 
-            if (
-              isCreatedByBot(category, client) &&
-              meetsAgeCriteria &&
-              category.children.cache.size === 0
-            ) {
-              console.log(
-                `Deleting empty ${deleteOlder ? "old" : "new"} category "${
-                  category.name
-                }" (${categoryId}) in ${guild.name}`
+              // Check if the category was created by the bot (if botCreatedOnly is true)
+              const isBotCategory =
+                !botCreatedOnly || isCreatedByBot(category, client);
+
+              if (
+                isBotCategory &&
+                meetsAgeCriteria &&
+                category.children.cache.size === 0
+              ) {
+                console.log(
+                  `Deleting empty ${deleteOlder ? "old" : "new"} category "${
+                    category.name
+                  }" (${categoryId}) in ${guild.name}`
+                );
+                await category.delete(
+                  `Automatic cleanup of ${deleteOlder ? "old" : "new"} ${
+                    botCreatedOnly ? "bot-created" : ""
+                  } categories`
+                );
+                stats.categoriesDeleted++;
+              } else {
+                stats.skipped++;
+                if (!meetsAgeCriteria) {
+                  console.log(
+                    `Skipped category ${category.name} - doesn't meet age criteria`
+                  );
+                }
+                if (botCreatedOnly && !isBotCategory) {
+                  console.log(
+                    `Skipped category ${category.name} - not created by bot`
+                  );
+                }
+                if (category.children.cache.size > 0) {
+                  console.log(
+                    `Skipped category ${category.name} - not empty (${category.children.cache.size} children)`
+                  );
+                }
+              }
+            } catch (error) {
+              console.error(
+                `Error deleting category ${category.name}: ${error.message}`
               );
-              await category.delete(
-                `Automatic cleanup of ${
-                  deleteOlder ? "old" : "new"
-                } bot-created categories`
-              );
-              stats.categoriesDeleted++;
-            } else {
-              stats.skipped++;
+              stats.errors++;
             }
-          } catch (error) {
-            console.error(
-              `Error deleting category ${category.name}: ${error.message}`
-            );
-            stats.errors++;
           }
         }
       } catch (error) {
@@ -305,23 +371,46 @@ async function cleanupChannels(client, days = 7, deleteOlder = true) {
 }
 
 /**
+ * Helper function to get a human-readable channel type name
+ * @param {number} type - The Discord channel type
+ * @returns {string} - A human-readable channel type name
+ */
+function getChannelTypeName(type) {
+  switch (type) {
+    case 0: return 'text';
+    case 2: return 'voice';
+    case 4: return 'category';
+    case 5: return 'announcement';
+    case 13: return 'stage';
+    case 15: return 'forum';
+    default: return 'unknown';
+  }
+}
+
+/**
  * Cleans up old channels and categories created by the bot (backward compatibility)
  * @param {Client} client - The Discord client
  * @param {number} olderThanDays - Delete channels older than this many days
+ * @param {Object} options - Additional options for cleanup
+ * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
+ * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
-async function cleanupOldChannels(client, olderThanDays = 7) {
-  return cleanupChannels(client, olderThanDays, true);
+async function cleanupOldChannels(client, olderThanDays = 7, options = {}) {
+  return cleanupChannels(client, olderThanDays, true, options);
 }
 
 /**
  * Cleans up new channels and categories created by the bot
  * @param {Client} client - The Discord client
  * @param {number} newerThanDays - Delete channels newer than this many days
+ * @param {Object} options - Additional options for cleanup
+ * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
+ * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
-async function cleanupNewChannels(client, newerThanDays = 7) {
-  return cleanupChannels(client, newerThanDays, false);
+async function cleanupNewChannels(client, newerThanDays = 7, options = {}) {
+  return cleanupChannels(client, newerThanDays, false, options);
 }
 
 module.exports = {
