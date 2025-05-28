@@ -100,8 +100,21 @@ const dutchSnacks = [
 async function changeNicknamesToDutchSnacks(
   guild,
   forceGroupSnack = false,
-  config = { ownerDMsEnabled: true }
+  config = { ownerDMsEnabled: true, blacklistedGuilds: [] }
 ) {
+  // Check if the guild is blacklisted
+  if (config.blacklistedGuilds && config.blacklistedGuilds.includes(guild.id)) {
+    console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`);
+    return {
+      success: 0,
+      failed: 0,
+      skipped: 0,
+      errors: [`Guild "${guild.name}" is blacklisted`],
+      groupSnackUsed: false,
+      groupSnack: null
+    };
+  }
+  
   console.log(`Changing nicknames in guild "${guild.name}" to Dutch snacks...`);
 
   const result = {

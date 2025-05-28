@@ -11,6 +11,7 @@ const getLocalTimezone = () => {
 const config = {
   token: process.env.BOT_TOKEN,
   timezone: getLocalTimezone(), // Use local server timezone
+  blacklistedGuilds: process.env.BLACKLISTED_GUILDS ? process.env.BLACKLISTED_GUILDS.split(',').map(id => id.trim()) : [], // Guild IDs to exclude from bot features
 };
 
 // Create a new Discord client
@@ -93,10 +94,16 @@ async function testGroupSnack() {
     // For each guild, change nicknames with forced group snack
     for (const guild of guilds.values()) {
       try {
+        // Skip blacklisted guilds
+        if (config.blacklistedGuilds.includes(guild.id)) {
+          console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping group snack test.`);
+          continue;
+        }
+        
         console.log(`\n=== Testing GROUP SNACK for guild: ${guild.name} ===`);
 
         // Change nicknames to the same Dutch snack (force group snack)
-        const result = await changeNicknamesToDutchSnacks(guild, true);
+        const result = await changeNicknamesToDutchSnacks(guild, true, config);
 
         console.log(`\n=== Results for ${guild.name} ===`);
         console.log(`Nicknames changed successfully: ${result.success}`);

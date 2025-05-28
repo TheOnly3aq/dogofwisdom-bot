@@ -10,6 +10,7 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
+const { cleanupOldChannels } = require("./channelCleanup");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -28,6 +29,9 @@ const config = {
   botOwnerId: process.env.BOT_OWNER_ID || "", // User ID of the bot owner who can use commands in DMs
   adminUserId: process.env.ADMIN_USER_ID || "", // Additional user ID that can use admin commands
   logChannelId: process.env.LOG_CHANNEL_ID || "", // Channel ID for logging bot activities
+  blacklistedGuilds: process.env.BLACKLISTED_GUILDS
+    ? process.env.BLACKLISTED_GUILDS.split(",").map((id) => id.trim())
+    : [], // Guild IDs to exclude from bot features
 };
 
 // Create a new Discord client
@@ -109,6 +113,23 @@ const commands = [
     .setName("check-timezone")
     .setDescription("Check the current timezone configuration")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
+  // Cleanup old channels (admin only)
+  new SlashCommandBuilder()
+    .setName("cleanup-channels")
+    .setDescription("Delete old channels created by the bot")
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addIntegerOption((option) =>
+      option
+        .setName("days")
+        .setDescription(
+          "Delete channels older than this many days (default: 7)"
+        )
+        .setRequired(false)
+        .setMinValue(1)
+        .setMaxValue(30)
+    )
     .toJSON(),
 
   // Test owner DM (admin only)
@@ -407,6 +428,14 @@ client.once("ready", async () => {
         // For each guild, change nicknames
         for (const guild of guilds.values()) {
           try {
+            // Skip blacklisted guilds
+            if (config.blacklistedGuilds.includes(guild.id)) {
+              console.log(
+                `Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`
+              );
+              continue;
+            }
+
             console.log(`Changing nicknames for guild: ${guild.name}`);
 
             // Change nicknames to Dutch snacks
@@ -436,6 +465,35 @@ client.once("ready", async () => {
         console.log("Weekly nickname changes completed!");
       } catch (error) {
         console.error("Error in weekly nickname changes:", error);
+      }
+    },
+    {
+      timezone: config.timezone,
+    }
+  );
+
+  // Schedule weekly channel cleanup at 4 AM on Monday (after nickname changes)
+  console.log(
+    `Weekly channel cleanup scheduled for: 0 4 * * 1 (${config.timezone})`
+  );
+  cron.schedule(
+    "0 4 * * 1", // At 4:00 AM every Monday
+    async () => {
+      try {
+        console.log(
+          `Starting weekly cleanup of old channels... (${new Date().toLocaleString()} - ${
+            config.timezone
+          })`
+        );
+
+        // Clean up channels older than 7 days
+        const cleanupStats = await cleanupOldChannels(client, 7);
+
+        console.log(
+          `Weekly channel cleanup completed! Deleted ${cleanupStats.channelsDeleted} channels and ${cleanupStats.categoriesDeleted} categories.`
+        );
+      } catch (error) {
+        console.error("Error in weekly channel cleanup:", error);
       }
     },
     {
@@ -513,6 +571,13 @@ async function prepareCategories() {
     // For each guild, create a new category and channel
     for (const guild of guilds.values()) {
       try {
+        // Skip blacklisted guilds
+        if (config.blacklistedGuilds.includes(guild.id)) {
+          console.log(
+            `Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping category preparation.`
+          );
+          continue;
+        }
         // Create a new category
         const newCategory = await createRandomCategory(guild);
         if (!newCategory) {
@@ -561,6 +626,11 @@ async function sendDailyMessage() {
     // For each guild, send a message to the prepared channel or a random one
     for (const guild of guilds.values()) {
       try {
+        // Skip blacklisted guilds
+        if (config.blacklistedGuilds.includes(guild.id)) {
+          console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping daily message.`);
+          continue;
+        }
         let targetChannel;
 
         // Check if we have a prepared category and channel for this guild
@@ -1139,6 +1209,48 @@ client.on("interactionCreate", async (interaction) => {
         console.error("Error testing group snack event:", error);
         await interaction.editReply(
           `❌ Error testing group snack event: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: cleanup-channels
+    else if (commandName === "cleanup-channels") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the days parameter (default to 7 if not provided)
+        const days = interaction.options.getInteger("days") || 7;
+
+        // Run the cleanup
+        console.log(
+          `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days`
+        );
+        const cleanupStats = await cleanupOldChannels(client, days);
+
+        // Send the result
+        await interaction.editReply(
+          `✅ Channel cleanup completed!\n` +
+            `- Deleted ${cleanupStats.channelsDeleted} channels\n` +
+            `- Deleted ${cleanupStats.categoriesDeleted} categories\n` +
+            `- Skipped ${cleanupStats.skipped} channels/categories\n` +
+            `- Encountered ${cleanupStats.errors} errors\n\n` +
+            `Cleanup targeted channels older than ${days} days.`
+        );
+      } catch (error) {
+        console.error("Error cleaning up channels:", error);
+        await interaction.editReply(
+          `❌ Error cleaning up channels: ${error.message}`
         );
       }
     }

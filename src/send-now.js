@@ -5,6 +5,9 @@ const { Client, GatewayIntentBits, Partials } = require("discord.js");
 const config = {
   token: process.env.BOT_TOKEN,
   timezone: process.env.TIMEZONE || "UTC",
+  blacklistedGuilds: process.env.BLACKLISTED_GUILDS
+    ? process.env.BLACKLISTED_GUILDS.split(",").map((id) => id.trim())
+    : [], // Guild IDs to exclude from bot features
 };
 
 // Create a new Discord client
@@ -147,6 +150,11 @@ async function sendWisdomMessage() {
     // For each guild, send a message to the test channel
     for (const guild of guilds.values()) {
       try {
+        // Skip blacklisted guilds
+        if (config.blacklistedGuilds.includes(guild.id)) {
+          console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping test message.`);
+          continue;
+        }
         let targetChannel;
 
         // Check if we have a test channel for this guild
@@ -186,6 +194,29 @@ async function sendWisdomMessage() {
         console.log(
           `Test wisdom message sent to ${guild.name} in #${targetChannel.name}: "${randomMessage}"`
         );
+        
+        // If this is a test channel we created, schedule it for deletion after 30 seconds
+        if (guildTestChannels && guildTestChannels.channel && guildTestChannels.category) {
+          console.log(`Scheduling test channel #${targetChannel.name} for deletion in 30 seconds...`);
+          
+          // Schedule channel deletion after 30 seconds
+          setTimeout(async () => {
+            try {
+              // Delete the channel
+              await targetChannel.delete('Test message sent - cleaning up');
+              console.log(`Deleted test channel #${targetChannel.name}`);
+              
+              // Delete the category if it's empty
+              const category = guildTestChannels.category;
+              if (category.children.cache.size === 0) {
+                await category.delete('Test message sent - cleaning up empty category');
+                console.log(`Deleted empty test category "${category.name}"`);
+              }
+            } catch (error) {
+              console.error(`Error deleting test channel/category: ${error.message}`);
+            }
+          }, 30000); // 30 seconds
+        }
       } catch (error) {
         console.error(`Error sending message to guild ${guild.name}:`, error);
       }
