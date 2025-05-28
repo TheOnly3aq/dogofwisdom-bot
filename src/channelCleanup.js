@@ -186,6 +186,7 @@ function isNewerThan(channel, days) {
  * @param {Object} options - Additional options for cleanup
  * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
  * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
+ * @param {boolean} options.deleteCategories - Whether to delete categories (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
 async function cleanupChannels(
@@ -197,11 +198,12 @@ async function cleanupChannels(
   // Set default options
   const channelType = options.channelType || "all";
   const botCreatedOnly = options.botCreatedOnly !== false; // Default to true if not specified
+  const deleteCategories = options.deleteCategories !== false; // Default to true if not specified
 
   console.log(
     `Starting cleanup of ${channelType} channels ${
       deleteOlder ? "older" : "newer"
-    } than ${days} days... (bot created only: ${botCreatedOnly})`
+    } than ${days} days... (bot created only: ${botCreatedOnly}, delete categories: ${deleteCategories})`
   );
 
   const stats = {
@@ -294,7 +296,12 @@ async function cleanupChannels(
         }
 
         // Only process categories if we're not filtering by channel type or if we're cleaning up everything
-        if (channelType === "all") {
+        // and if deleteCategories option is enabled
+        if (channelType === "all" && deleteCategories) {
+          console.log(
+            `Processing categories for deletion (enabled: ${deleteCategories})`
+          );
+
           // Then, find and delete empty categories
           for (const [categoryId, category] of channels
             .filter((c) => c.type === 4)
@@ -351,6 +358,8 @@ async function cleanupChannels(
               stats.errors++;
             }
           }
+        } else if (channelType === "all" && !deleteCategories) {
+          console.log(`Skipping category deletion (disabled by option)`);
         }
       } catch (error) {
         console.error(
@@ -394,6 +403,7 @@ function getChannelTypeName(type) {
  * @param {Object} options - Additional options for cleanup
  * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
  * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
+ * @param {boolean} options.deleteCategories - Whether to delete categories (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
 async function cleanupOldChannels(client, olderThanDays = 7, options = {}) {
@@ -407,6 +417,7 @@ async function cleanupOldChannels(client, olderThanDays = 7, options = {}) {
  * @param {Object} options - Additional options for cleanup
  * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
  * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
+ * @param {boolean} options.deleteCategories - Whether to delete categories (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
 async function cleanupNewChannels(client, newerThanDays = 7, options = {}) {

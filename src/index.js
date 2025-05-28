@@ -164,6 +164,12 @@ const commands = [
         )
         .setRequired(false)
     )
+    .addBooleanOption((option) =>
+      option
+        .setName("delete-categories")
+        .setDescription("Delete empty categories (default: true)")
+        .setRequired(false)
+    )
     .toJSON(),
 
   // Test owner DM (admin only)
@@ -1310,10 +1316,17 @@ client.on("interactionCreate", async (interaction) => {
         // If botCreatedOnly is null (not specified), default to true
         const useBotCreatedOnly = botCreatedOnly !== false;
 
+        // Get the delete-categories parameter (default to true if not provided)
+        const deleteCategories =
+          interaction.options.getBoolean("delete-categories");
+        // If deleteCategories is null (not specified), default to true
+        const useDeleteCategories = deleteCategories !== false;
+
         // Create options object for cleanup functions
         const cleanupOptions = {
           channelType: channelType,
           botCreatedOnly: useBotCreatedOnly,
+          deleteCategories: useDeleteCategories,
         };
 
         let cleanupStats = {
@@ -1328,7 +1341,7 @@ client.on("interactionCreate", async (interaction) => {
         if (mode === "old" || mode === "both") {
           console.log(
             `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days` +
-              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly})`
+              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly}, delete categories: ${useDeleteCategories})`
           );
           const oldCleanupStats = await cleanupOldChannels(
             client,
@@ -1348,7 +1361,7 @@ client.on("interactionCreate", async (interaction) => {
         if (mode === "new" || mode === "both") {
           console.log(
             `Manual channel cleanup triggered by ${interaction.user.tag} for channels newer than ${days} days` +
-              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly})`
+              ` (channel type: ${channelType}, bot created only: ${useBotCreatedOnly}, delete categories: ${useDeleteCategories})`
           );
           const newCleanupStats = await cleanupNewChannels(
             client,
@@ -1375,6 +1388,7 @@ client.on("interactionCreate", async (interaction) => {
             `Mode: ${mode}\n` +
             `Channel type: ${channelType}\n` +
             `Bot created only: ${useBotCreatedOnly}\n` +
+            `Delete categories: ${useDeleteCategories}\n` +
             modeDescription
         );
       } catch (error) {
