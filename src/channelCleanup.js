@@ -151,6 +151,7 @@ function isNewerThan(channel, days) {
  * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
  * @param {boolean} options.deleteCategories - Whether to delete categories (default: true)
  * @param {string[]} options.blacklistedChannels - Channel IDs that should never be deleted (default: [])
+ * @param {boolean} options.preserveActiveVoice - Don't delete voice channels with active users (default: true)
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
 async function cleanupChannels(
@@ -164,11 +165,12 @@ async function cleanupChannels(
   const botCreatedOnly = options.botCreatedOnly !== false; // Default to true if not specified
   const deleteCategories = options.deleteCategories !== false; // Default to true if not specified
   const blacklistedChannels = options.blacklistedChannels || []; // Default to empty array if not specified
+  const preserveActiveVoice = options.preserveActiveVoice !== false; // Default to true if not specified
 
   console.log(
     `Starting cleanup of ${channelType} channels ${
       deleteOlder ? "older" : "newer"
-    } than ${days} days... (bot created only: ${botCreatedOnly}, delete categories: ${deleteCategories})`
+    } than ${days} days... (bot created only: ${botCreatedOnly}, delete categories: ${deleteCategories}, preserve active voice: ${preserveActiveVoice})`
   );
 
   if (blacklistedChannels.length > 0) {
@@ -185,6 +187,7 @@ async function cleanupChannels(
     errors: 0,
     skipped: 0,
     blacklisted: 0,
+    activeVoice: 0,
   };
 
   try {
@@ -235,6 +238,19 @@ async function cleanupChannels(
                 `Skipped channel ${channel.name} (${channelId}) - channel is blacklisted`
               );
               stats.blacklisted++;
+              continue;
+            }
+
+            // Check if it's a voice channel with active users
+            const isVoiceChannel = [2, 13].includes(channel.type); // 2: GUILD_VOICE, 13: GUILD_STAGE_VOICE
+            const hasActiveUsers =
+              isVoiceChannel && channel.members && channel.members.size > 0;
+
+            if (preserveActiveVoice && hasActiveUsers) {
+              console.log(
+                `Skipped voice channel ${channel.name} (${channelId}) - has ${channel.members.size} active users`
+              );
+              stats.activeVoice++;
               continue;
             }
 
@@ -370,7 +386,7 @@ async function cleanupChannels(
   }
 
   console.log(
-    `Channel cleanup complete. Deleted ${stats.channelsDeleted} channels and ${stats.categoriesDeleted} categories. Blacklisted: ${stats.blacklisted}. Errors: ${stats.errors}`
+    `Channel cleanup complete. Deleted ${stats.channelsDeleted} channels and ${stats.categoriesDeleted} categories. Blacklisted: ${stats.blacklisted}. Active voice preserved: ${stats.activeVoice}. Errors: ${stats.errors}`
   );
   return stats;
 }

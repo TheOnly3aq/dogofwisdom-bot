@@ -173,6 +173,14 @@ const commands = [
         .setDescription("Delete empty categories (default: true)")
         .setRequired(false)
     )
+    .addBooleanOption((option) =>
+      option
+        .setName("preserve-active-voice")
+        .setDescription(
+          "Don't delete voice channels with active users (default: true)"
+        )
+        .setRequired(false)
+    )
     .toJSON(),
 
   // Test owner DM (admin only)
@@ -1258,12 +1266,20 @@ client.on("interactionCreate", async (interaction) => {
         // If deleteCategories is null (not specified), default to true
         const useDeleteCategories = deleteCategories !== false;
 
+        // Get the preserve-active-voice parameter (default to true if not provided)
+        const preserveActiveVoice = interaction.options.getBoolean(
+          "preserve-active-voice"
+        );
+        // If preserveActiveVoice is null (not specified), default to true
+        const usePreserveActiveVoice = preserveActiveVoice !== false;
+
         // Create options object for cleanup functions
         const cleanupOptions = {
           channelType: channelType,
           botCreatedOnly: useBotCreatedOnly,
           deleteCategories: useDeleteCategories,
           blacklistedChannels: config.blacklistedChannels,
+          preserveActiveVoice: usePreserveActiveVoice,
         };
 
         let cleanupStats = {
@@ -1313,6 +1329,8 @@ client.on("interactionCreate", async (interaction) => {
           cleanupStats.categoriesDeleted += newCleanupStats.categoriesDeleted;
           cleanupStats.skipped += newCleanupStats.skipped;
           cleanupStats.errors += newCleanupStats.errors;
+          cleanupStats.blacklisted += newCleanupStats.blacklisted || 0;
+          cleanupStats.activeVoice += newCleanupStats.activeVoice || 0;
 
           modeDescription += `Deleted channels newer than ${days} days.\n`;
         }
@@ -1326,11 +1344,15 @@ client.on("interactionCreate", async (interaction) => {
             `- Protected ${
               cleanupStats.blacklisted || 0
             } blacklisted channels/categories\n` +
+            `- Preserved ${
+              cleanupStats.activeVoice || 0
+            } active voice channels\n` +
             `- Encountered ${cleanupStats.errors} errors\n\n` +
             `Mode: ${mode}\n` +
             `Channel type: ${channelType}\n` +
             `Bot created only: ${useBotCreatedOnly}\n` +
             `Delete categories: ${useDeleteCategories}\n` +
+            `Preserve active voice channels: ${usePreserveActiveVoice}\n` +
             modeDescription
         );
       } catch (error) {
