@@ -150,6 +150,7 @@ function isNewerThan(channel, days) {
  * @param {string} options.channelType - Type of channels to delete: 'text', 'voice', 'all' (default: 'all')
  * @param {boolean} options.botCreatedOnly - Only delete channels created by the bot (default: true)
  * @param {boolean} options.deleteCategories - Whether to delete categories (default: true)
+ * @param {string[]} options.blacklistedChannels - Channel IDs that should never be deleted (default: [])
  * @returns {Promise<Object>} - Statistics about the cleanup
  */
 async function cleanupChannels(
@@ -162,6 +163,7 @@ async function cleanupChannels(
   const channelType = options.channelType || "all";
   const botCreatedOnly = options.botCreatedOnly !== false; // Default to true if not specified
   const deleteCategories = options.deleteCategories !== false; // Default to true if not specified
+  const blacklistedChannels = options.blacklistedChannels || []; // Default to empty array if not specified
 
   console.log(
     `Starting cleanup of ${channelType} channels ${
@@ -169,11 +171,20 @@ async function cleanupChannels(
     } than ${days} days... (bot created only: ${botCreatedOnly}, delete categories: ${deleteCategories})`
   );
 
+  if (blacklistedChannels.length > 0) {
+    console.log(
+      `Blacklisted channels that will never be deleted: ${blacklistedChannels.join(
+        ", "
+      )}`
+    );
+  }
+
   const stats = {
     channelsDeleted: 0,
     categoriesDeleted: 0,
     errors: 0,
     skipped: 0,
+    blacklisted: 0,
   };
 
   try {
@@ -216,6 +227,17 @@ async function cleanupChannels(
 
         for (const [channelId, channel] of nonCategoryChannels.entries()) {
           try {
+            // Check if the channel is in the blacklist
+            const isBlacklisted = blacklistedChannels.includes(channelId);
+
+            if (isBlacklisted) {
+              console.log(
+                `Skipped channel ${channel.name} (${channelId}) - channel is blacklisted`
+              );
+              stats.blacklisted++;
+              continue;
+            }
+
             // Check if the channel meets the age criteria
             const meetsAgeCriteria = deleteOlder
               ? isOlderThan(channel, days)
@@ -271,6 +293,17 @@ async function cleanupChannels(
             .entries()) {
             // 4 is GUILD_CATEGORY
             try {
+              // Check if the category is in the blacklist
+              const isBlacklisted = blacklistedChannels.includes(categoryId);
+
+              if (isBlacklisted) {
+                console.log(
+                  `Skipped category ${category.name} (${categoryId}) - category is blacklisted`
+                );
+                stats.blacklisted++;
+                continue;
+              }
+
               // Check if the category meets the age criteria
               const meetsAgeCriteria = deleteOlder
                 ? isOlderThan(category, days)
@@ -337,7 +370,7 @@ async function cleanupChannels(
   }
 
   console.log(
-    `Channel cleanup complete. Deleted ${stats.channelsDeleted} channels and ${stats.categoriesDeleted} categories. Errors: ${stats.errors}`
+    `Channel cleanup complete. Deleted ${stats.channelsDeleted} channels and ${stats.categoriesDeleted} categories. Blacklisted: ${stats.blacklisted}. Errors: ${stats.errors}`
   );
   return stats;
 }

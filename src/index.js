@@ -36,6 +36,9 @@ const config = {
   blacklistedGuilds: process.env.BLACKLISTED_GUILDS
     ? process.env.BLACKLISTED_GUILDS.split(",").map((id) => id.trim())
     : [], // Guild IDs to exclude from bot features
+  blacklistedChannels: process.env.BLACKLISTED_CHANNELS
+    ? process.env.BLACKLISTED_CHANNELS.split(",").map((id) => id.trim())
+    : [], // Channel IDs that should never be deleted
 };
 
 // Create a new Discord client
@@ -1260,6 +1263,7 @@ client.on("interactionCreate", async (interaction) => {
           channelType: channelType,
           botCreatedOnly: useBotCreatedOnly,
           deleteCategories: useDeleteCategories,
+          blacklistedChannels: config.blacklistedChannels,
         };
 
         let cleanupStats = {
@@ -1267,6 +1271,7 @@ client.on("interactionCreate", async (interaction) => {
           categoriesDeleted: 0,
           skipped: 0,
           errors: 0,
+          blacklisted: 0,
         };
         let modeDescription = "";
 
@@ -1287,6 +1292,7 @@ client.on("interactionCreate", async (interaction) => {
           cleanupStats.categoriesDeleted += oldCleanupStats.categoriesDeleted;
           cleanupStats.skipped += oldCleanupStats.skipped;
           cleanupStats.errors += oldCleanupStats.errors;
+          cleanupStats.blacklisted += oldCleanupStats.blacklisted || 0;
 
           modeDescription += `Deleted channels older than ${days} days.\n`;
         }
@@ -1317,6 +1323,9 @@ client.on("interactionCreate", async (interaction) => {
             `- Deleted ${cleanupStats.channelsDeleted} channels\n` +
             `- Deleted ${cleanupStats.categoriesDeleted} categories\n` +
             `- Skipped ${cleanupStats.skipped} channels/categories\n` +
+            `- Protected ${
+              cleanupStats.blacklisted || 0
+            } blacklisted channels/categories\n` +
             `- Encountered ${cleanupStats.errors} errors\n\n` +
             `Mode: ${mode}\n` +
             `Channel type: ${channelType}\n` +
