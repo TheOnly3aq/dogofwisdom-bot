@@ -115,10 +115,10 @@ The bot displays a random status that changes every hour. Statuses include:
 ### Anti-Mute System
 
 To prevent users from muting the bot's messages:
-- The bot creates a new category 5 minutes before sending the daily message
-- It then creates a new channel within that category
+- The bot creates a new category and channel each time it sends a daily message
 - The message is sent to this new channel, making it harder for users to mute
 - Each day, a completely different category and channel are used
+- Messages are sent without pinging anyone to avoid notification spam
 
 ### Channel Cleanup
 

@@ -361,60 +361,12 @@ client.once("ready", async () => {
   // Change status every hour
   setInterval(setRandomStatus, 60 * 60 * 1000);
 
-  // Parse the cron schedule to calculate 5 minutes before
-  const parseCronForPreparation = (cronExpression) => {
-    const parts = cronExpression.split(" ");
-    if (parts.length !== 5) return null;
+  // Schedule the daily message at the configured time
 
-    // Extract minute and hour
-    let minute = parseInt(parts[0]);
-    let hour = parseInt(parts[1]);
-
-    // Calculate 5 minutes before
-    minute = minute - 5;
-    if (minute < 0) {
-      minute = 55 + minute; // Add 60 and subtract 5
-      hour = (hour - 1 + 24) % 24; // Subtract 1 hour, handle day wrap
-    }
-
-    // Return the new cron expression
-    return `${minute} ${hour} ${parts[2]} ${parts[3]} ${parts[4]}`;
-  };
-
-  // Get the preparation cron schedule (5 minutes before the message)
-  const prepCronSchedule = parseCronForPreparation(config.cronSchedule);
-
-  // Log the schedules
-  console.log(
-    `Category preparation scheduled for: ${prepCronSchedule} (${config.timezone})`
-  );
+  // Log the schedule
   console.log(
     `Message sending scheduled for: ${config.cronSchedule} (${config.timezone})`
   );
-
-  // Schedule category preparation (5 minutes before)
-  if (prepCronSchedule) {
-    cron.schedule(
-      prepCronSchedule,
-      async () => {
-        try {
-          // Only prepare categories if daily messages are enabled
-          if (config.dailyMessagesEnabled) {
-            await prepareCategories();
-          } else {
-            console.log(
-              "Daily messages are disabled. Skipping category preparation."
-            );
-          }
-        } catch (error) {
-          console.error("Error preparing categories:", error);
-        }
-      },
-      {
-        timezone: config.timezone,
-      }
-    );
-  }
 
   // Schedule the daily message
   cron.schedule(
@@ -682,7 +634,7 @@ async function prepareCategories() {
   }
 }
 
-// Function to send the daily message with a random user ping
+// Function to send the daily message in a new channel without pinging anyone
 async function sendDailyMessage() {
   try {
     // Get all guilds the bot is in
@@ -692,7 +644,7 @@ async function sendDailyMessage() {
       return;
     }
 
-    // For each guild, send a message to the prepared channel or a random one
+    // For each guild, create a new category and channel, then send the message
     for (const guild of guilds.values()) {
       try {
         // Skip blacklisted guilds
@@ -702,60 +654,41 @@ async function sendDailyMessage() {
           );
           continue;
         }
-        let targetChannel;
 
-        // Check if we have a prepared category and channel for this guild
-        const preparedChannels = guildCategories.get(guild.id);
-        if (preparedChannels && preparedChannels.channel) {
-          targetChannel = preparedChannels.channel;
-          console.log(
-            `Using prepared channel #${targetChannel.name} in category "${preparedChannels.category.name}"`
-          );
-        } else {
-          // Fallback to a random channel if no prepared channel exists
-          const textChannels = guild.channels.cache.filter(
-            (channel) =>
-              channel.type === 0 && // 0 is GUILD_TEXT
-              channel.permissionsFor(guild.members.me).has("SendMessages")
-          );
-
-          if (textChannels.size === 0) {
-            console.log(
-              `No accessible text channels found in guild: ${guild.name}`
-            );
-            continue;
-          }
-
-          // Select a random text channel
-          targetChannel = textChannels.random();
-          console.log(
-            `Using random channel #${targetChannel.name} (no prepared channel found)`
-          );
-        }
-
-        // Get all members from the guild
-        const members = await guild.members.fetch();
-
-        // Filter out bots and get a random member
-        const humanMembers = members.filter((member) => !member.user.bot);
-        if (humanMembers.size === 0) {
-          console.log(`No human members found in guild: ${guild.name}`);
+        // Create a new category
+        const newCategory = await createRandomCategory(guild);
+        if (!newCategory) {
+          console.log(`Failed to create category in guild: ${guild.name}`);
           continue;
         }
 
-        const randomMember = humanMembers.random();
+        // Create a new channel in the category
+        const newChannel = await createChannelInCategory(guild, newCategory);
+        if (!newChannel) {
+          console.log(`Failed to create channel in guild: ${guild.name}`);
+          // Try to delete the category since we couldn't create a channel
+          try {
+            await newCategory.delete();
+          } catch (deleteError) {
+            console.error(`Error deleting category: ${deleteError.message}`);
+          }
+          continue;
+        }
 
         // Generate a random wisdom message
         const randomMessage = generateWisdomMessage();
 
-        // Send the message with the random user ping
-        await targetChannel.send(`${randomMessage} <@${randomMember.id}>`);
+        // Send the message WITHOUT pinging anyone
+        await newChannel.send(randomMessage);
         console.log(
-          `Daily message sent to ${guild.name} in #${targetChannel.name}: "${randomMessage}", pinged: ${randomMember.user.tag}`
+          `Daily message sent to ${guild.name} in #${newChannel.name}: "${randomMessage}"`
         );
 
-        // Clear the prepared category and channel for this guild
-        guildCategories.delete(guild.id);
+        // Store the category and channel for future reference
+        guildCategories.set(guild.id, {
+          category: newCategory,
+          channel: newChannel,
+        });
       } catch (error) {
         console.error(`Error sending message to guild ${guild.name}:`, error);
       }
