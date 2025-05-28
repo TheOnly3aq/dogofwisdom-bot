@@ -15,7 +15,7 @@ function isCreatedByBot(channel, client) {
 
   // Check if the channel has a name pattern that matches our bot's created channels
   const botCreatedPatterns = [
-    // Channel patterns
+    // Channel patterns - EXACT matches only
     /^wisdom-\d+$/, // wisdom-123
     /^daily-wisdom$/, // From createChannelInCategory
     /^wisdom-chat$/, // From createChannelInCategory
@@ -29,21 +29,13 @@ function isCreatedByBot(channel, client) {
     /^wisdom-nuggets$/, // From createChannelInCategory
     /^daily-wisdom-\d+$/, // daily-wisdom-123
     /^bot-wisdom-\d+$/, // bot-wisdom-123
-    /^random-\d+$/, // random-123
-    /^daily-\d+$/, // daily-123
-    /^temp-\d+$/, // temp-123
-    /^test-\d+$/, // test-123
-    /^bot-test-\d+$/, // bot-test-123
     /^wisdom-bot-\d+$/, // wisdom-bot-123
     /^dog-wisdom-\d+$/, // dog-wisdom-123
     /^dog-of-wisdom-\d+$/, // dog-of-wisdom-123
     /^wisdom-dog-\d+$/, // wisdom-dog-123
-    /^bot-channel-\d+$/, // bot-channel-123
-    /^channel-\d+$/, // channel-123
     /^wisdom-message-\d+$/, // wisdom-message-123
-    /^message-\d+$/, // message-123
 
-    // Category patterns
+    // Category patterns - EXACT matches only
     /^Wisdom of the Day #\d+$/, // From createRandomCategory
     /^Dog Wisdom Central #\d+$/, // From createRandomCategory
     /^Today's Enlightenment #\d+$/, // From createRandomCategory
@@ -64,9 +56,6 @@ function isCreatedByBot(channel, client) {
     /^Leash on Life #\d+$/, // From createRandomCategory
     /^Collar of Knowledge #\d+$/, // From createRandomCategory
     /^Kibble Contemplations #\d+$/, // From createRandomCategory
-    /^category-\d+$/, // category-123
-    /^wisdom-category-\d+$/, // wisdom-category-123
-    /^bot-category-\d+$/, // bot-category-123
   ];
 
   // Log channel details for debugging
@@ -82,54 +71,28 @@ function isCreatedByBot(channel, client) {
   );
   if (matchesPattern) {
     console.log(`Channel ${channel.name} matches bot pattern`);
+    return true;
   }
 
-  // Check if the channel was created after the bot was started
-  // This is a fallback for test channels that might not match our patterns
-  const botStartTime = client.readyTimestamp;
-  const wasCreatedAfterBotStart = channel.createdTimestamp > botStartTime;
-
   // Check if the channel was created very recently (within the last hour)
-  // This is useful for catching test channels created by send-now.js
+  // AND has a specific bot-created name pattern
   const now = Date.now();
   const channelAge = now - channel.createdTimestamp;
   const isVeryRecent = channelAge < 60 * 60 * 1000; // Less than 1 hour old
 
-  if (isVeryRecent) {
+  // Only consider very recent channels if they have a specific bot pattern
+  if (isVeryRecent && channel.name.startsWith("wisdom-")) {
     console.log(
-      `Channel ${channel.name} is very recent (less than 1 hour old)`
+      `Channel ${channel.name} is very recent (less than 1 hour old) and has a wisdom- prefix`
     );
     return true;
   }
 
-  if (wasCreatedAfterBotStart && !matchesPattern) {
-    // For channels created after the bot started, we'll consider them bot-created
-    // if they have certain keywords in their name
-    const botKeywords = [
-      "test",
-      "wisdom",
-      "bot",
-      "dog",
-      "daily",
-      "random",
-      "temp",
-      "bark",
-      "woof",
-      "howl",
-    ];
-    const hasKeyword = botKeywords.some((keyword) =>
-      channel.name.toLowerCase().includes(keyword)
-    );
-
-    if (hasKeyword) {
-      console.log(
-        `Channel ${channel.name} was created after bot start and has a bot keyword`
-      );
-      return true;
-    }
-  }
-
-  return matchesPattern;
+  // If we get here, the channel is not considered to be created by the bot
+  console.log(
+    `Channel ${channel.name} is NOT considered to be created by the bot`
+  );
+  return false;
 }
 
 /**
