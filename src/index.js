@@ -10,7 +10,11 @@ const {
 } = require("discord.js");
 const cron = require("node-cron");
 const moment = require("moment-timezone");
-const { cleanupOldChannels } = require("./channelCleanup");
+const {
+  cleanupOldChannels,
+  cleanupNewChannels,
+  cleanupChannels,
+} = require("./channelCleanup");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -115,16 +119,27 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 
-  // Cleanup old channels (admin only)
+  // Cleanup channels (admin only)
   new SlashCommandBuilder()
     .setName("cleanup-channels")
-    .setDescription("Delete old channels created by the bot")
+    .setDescription("Delete channels created by the bot")
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addStringOption((option) =>
+      option
+        .setName("mode")
+        .setDescription("Which channels to delete")
+        .setRequired(true)
+        .addChoices(
+          { name: "Old channels (older than specified days)", value: "old" },
+          { name: "New channels (newer than specified days)", value: "new" },
+          { name: "Both old and new channels", value: "both" }
+        )
+    )
     .addIntegerOption((option) =>
       option
         .setName("days")
         .setDescription(
-          "Delete channels older than this many days (default: 7)"
+          "Delete channels older/newer than this many days (default: 7)"
         )
         .setRequired(false)
         .setMinValue(1)
@@ -481,16 +496,31 @@ client.once("ready", async () => {
     async () => {
       try {
         console.log(
-          `Starting weekly cleanup of old channels... (${new Date().toLocaleString()} - ${
+          `Starting weekly channel cleanup... (${new Date().toLocaleString()} - ${
             config.timezone
           })`
         );
 
         // Clean up channels older than 7 days
-        const cleanupStats = await cleanupOldChannels(client, 7);
+        const oldCleanupStats = await cleanupOldChannels(client, 7);
+        console.log(
+          `Old channel cleanup completed! Deleted ${oldCleanupStats.channelsDeleted} channels and ${oldCleanupStats.categoriesDeleted} categories.`
+        );
+
+        // Clean up channels newer than 7 days
+        const newCleanupStats = await cleanupNewChannels(client, 7);
+        console.log(
+          `New channel cleanup completed! Deleted ${newCleanupStats.channelsDeleted} channels and ${newCleanupStats.categoriesDeleted} categories.`
+        );
+
+        // Total stats
+        const totalChannelsDeleted =
+          oldCleanupStats.channelsDeleted + newCleanupStats.channelsDeleted;
+        const totalCategoriesDeleted =
+          oldCleanupStats.categoriesDeleted + newCleanupStats.categoriesDeleted;
 
         console.log(
-          `Weekly channel cleanup completed! Deleted ${cleanupStats.channelsDeleted} channels and ${cleanupStats.categoriesDeleted} categories.`
+          `Weekly channel cleanup completed! Total deleted: ${totalChannelsDeleted} channels and ${totalCategoriesDeleted} categories.`
         );
       } catch (error) {
         console.error("Error in weekly channel cleanup:", error);
@@ -628,7 +658,9 @@ async function sendDailyMessage() {
       try {
         // Skip blacklisted guilds
         if (config.blacklistedGuilds.includes(guild.id)) {
-          console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping daily message.`);
+          console.log(
+            `Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping daily message.`
+          );
           continue;
         }
         let targetChannel;
@@ -1232,11 +1264,47 @@ client.on("interactionCreate", async (interaction) => {
         // Get the days parameter (default to 7 if not provided)
         const days = interaction.options.getInteger("days") || 7;
 
-        // Run the cleanup
-        console.log(
-          `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days`
-        );
-        const cleanupStats = await cleanupOldChannels(client, days);
+        // Get the mode parameter (default to "old" if not provided)
+        const mode = interaction.options.getString("mode") || "old";
+
+        let cleanupStats = {
+          channelsDeleted: 0,
+          categoriesDeleted: 0,
+          skipped: 0,
+          errors: 0,
+        };
+        let modeDescription = "";
+
+        // Run the cleanup based on the selected mode
+        if (mode === "old" || mode === "both") {
+          console.log(
+            `Manual channel cleanup triggered by ${interaction.user.tag} for channels older than ${days} days`
+          );
+          const oldCleanupStats = await cleanupOldChannels(client, days);
+
+          // Add to total stats
+          cleanupStats.channelsDeleted += oldCleanupStats.channelsDeleted;
+          cleanupStats.categoriesDeleted += oldCleanupStats.categoriesDeleted;
+          cleanupStats.skipped += oldCleanupStats.skipped;
+          cleanupStats.errors += oldCleanupStats.errors;
+
+          modeDescription += `Deleted channels older than ${days} days.\n`;
+        }
+
+        if (mode === "new" || mode === "both") {
+          console.log(
+            `Manual channel cleanup triggered by ${interaction.user.tag} for channels newer than ${days} days`
+          );
+          const newCleanupStats = await cleanupNewChannels(client, days);
+
+          // Add to total stats
+          cleanupStats.channelsDeleted += newCleanupStats.channelsDeleted;
+          cleanupStats.categoriesDeleted += newCleanupStats.categoriesDeleted;
+          cleanupStats.skipped += newCleanupStats.skipped;
+          cleanupStats.errors += newCleanupStats.errors;
+
+          modeDescription += `Deleted channels newer than ${days} days.\n`;
+        }
 
         // Send the result
         await interaction.editReply(
@@ -1245,7 +1313,8 @@ client.on("interactionCreate", async (interaction) => {
             `- Deleted ${cleanupStats.categoriesDeleted} categories\n` +
             `- Skipped ${cleanupStats.skipped} channels/categories\n` +
             `- Encountered ${cleanupStats.errors} errors\n\n` +
-            `Cleanup targeted channels older than ${days} days.`
+            `Mode: ${mode}\n` +
+            modeDescription
         );
       } catch (error) {
         console.error("Error cleaning up channels:", error);
