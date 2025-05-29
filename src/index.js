@@ -386,7 +386,8 @@ client.once("ready", async () => {
       try {
         // Only send daily message if enabled
         if (config.dailyMessagesEnabled) {
-          await sendDailyMessage();
+          // Pass true to ping random users in scheduled messages
+          await sendDailyMessage(true);
         } else {
           console.log("Daily messages are disabled. Skipping daily message.");
         }
@@ -645,8 +646,10 @@ async function prepareCategories() {
   }
 }
 
-// Function to send the daily message in a new channel without pinging anyone
-async function sendDailyMessage() {
+// Function to send the daily message in a new channel
+// pingUsers: if true, will ping random users in the message (for scheduled messages)
+// if false, will not ping anyone (for test messages)
+async function sendDailyMessage(pingUsers = false) {
   try {
     // Get all guilds the bot is in
     const guilds = client.guilds.cache;
@@ -689,8 +692,45 @@ async function sendDailyMessage() {
         // Generate a random wisdom message
         const randomMessage = generateWisdomMessage();
 
-        // Send the message WITHOUT pinging anyone
-        await newChannel.send(randomMessage);
+        let finalMessage = randomMessage;
+
+        // If pingUsers is true, select a random user to ping
+        if (pingUsers) {
+          try {
+            // Fetch all members if not already cached
+            if (guild.members.cache.size === 0) {
+              await guild.members.fetch();
+            }
+
+            // Filter out bots and get only human users
+            const humanMembers = guild.members.cache.filter(
+              (member) => !member.user.bot
+            );
+
+            if (humanMembers.size > 0) {
+              // Select a random member
+              const randomMember = humanMembers.random();
+              // Add the ping to the message
+              finalMessage = `${randomMember} ${randomMessage}`;
+              console.log(
+                `Pinging user ${randomMember.user.tag} in daily message`
+              );
+            } else {
+              console.log(`No human members found in guild: ${guild.name}`);
+            }
+          } catch (memberError) {
+            console.error(
+              `Error fetching members for guild ${guild.name}:`,
+              memberError
+            );
+            // Continue with the message without pinging anyone
+          }
+        } else {
+          console.log(`Not pinging any users (test message)`);
+        }
+
+        // Send the message (with or without ping based on pingUsers parameter)
+        await newChannel.send(finalMessage);
         console.log(
           `Daily message sent to ${guild.name} in #${newChannel.name}: "${randomMessage}"`
         );
@@ -1067,10 +1107,14 @@ client.on("interactionCreate", async (interaction) => {
       await interaction.deferReply();
 
       try {
-        // Send the daily message immediately
-        await sendDailyMessage();
-        await interaction.editReply("✅ Daily message has been sent manually!");
-        console.log(`Daily message sent manually by ${interaction.user.tag}`);
+        // Send the daily message immediately without pinging users (test mode)
+        await sendDailyMessage(false);
+        await interaction.editReply(
+          "✅ Daily message has been sent manually! (No user pings in test mode)"
+        );
+        console.log(
+          `Daily message sent manually by ${interaction.user.tag} (without pings)`
+        );
       } catch (error) {
         console.error("Error sending manual daily message:", error);
         await interaction.editReply(
