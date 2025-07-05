@@ -15,7 +15,10 @@ const {
   cleanupNewChannels,
   cleanupChannels,
 } = require("./channelCleanup");
-const { handleNicknameMonitoring } = require("./nicknameMonitor");
+const {
+  handleNicknameMonitoring,
+  setCooldownForUser,
+} = require("./nicknameMonitor");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -41,6 +44,7 @@ const config = {
     ? process.env.BLACKLISTED_CHANNELS.split(",").map((id) => id.trim())
     : [], // Channel IDs that should never be deleted
   monitoredUserId: process.env.MONITORED_USER_ID || "", // User ID to monitor for nickname changes
+  mainChannelId: process.env.MAIN_CHANNEL_ID || "", // Channel ID for "Nuh Uh" messages
 };
 
 // Create a new Discord client
@@ -1213,7 +1217,7 @@ client.on("interactionCreate", async (interaction) => {
           `Manually changing nicknames in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        const result = await changeNicknamesToDutchSnacks(guild);
+        const result = await changeNicknamesToDutchSnacks(guild, false, config);
 
         // Send the result
         let responseMessage =
@@ -1718,8 +1722,11 @@ client.on("interactionCreate", async (interaction) => {
           "Testing nickname monitoring feature"
         );
 
+        // Set a brief cooldown to prevent the monitoring system from immediately triggering
+        setCooldownForUser(monitoredMember.id);
+
         await interaction.editReply({
-          content: `✅ Successfully changed ${monitoredMember.user.tag}'s nickname from "${currentNickname}" to "Test Nickname".\n\nThe nickname monitoring system should automatically revert it to a random Dutch snack name within a few seconds.`,
+          content: `✅ Successfully changed ${monitoredMember.user.tag}'s nickname from "${currentNickname}" to "Test Nickname".\n\nNow try changing their nickname manually - the monitoring system will automatically revert it to a random Dutch snack name and send "Nuh Uh" to the main channel! (There's a 5-second cooldown to prevent infinite loops)`,
           ephemeral: true,
         });
 
