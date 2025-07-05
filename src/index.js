@@ -15,6 +15,10 @@ const {
   cleanupNewChannels,
   cleanupChannels,
 } = require("./channelCleanup");
+const {
+  handleNicknameMonitoring,
+  setCooldownForUser,
+} = require("./nicknameMonitor");
 
 // Get the local server timezone
 const getLocalTimezone = () => {
@@ -39,6 +43,8 @@ const config = {
   blacklistedChannels: process.env.BLACKLISTED_CHANNELS
     ? process.env.BLACKLISTED_CHANNELS.split(",").map((id) => id.trim())
     : [], // Channel IDs that should never be deleted
+  monitoredUserId: process.env.MONITORED_USER_ID || "", // User ID to monitor for nickname changes
+  mainChannelId: process.env.MAIN_CHANNEL_ID || "", // Channel ID for "Nuh Uh" messages
 };
 
 // Create a new Discord client
@@ -250,6 +256,15 @@ const commands = [
         .setRequired(false)
     )
     .toJSON(),
+
+  // Test nickname monitoring (admin only)
+  new SlashCommandBuilder()
+    .setName("test-nickname-monitor")
+    .setDescription(
+      "Test the nickname monitoring feature by changing the monitored user's nickname"
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
 ];
 
 // Handle messages sent to the bot
@@ -347,6 +362,10 @@ client.once("ready", async () => {
   );
   logMessage(
     `Log channel ID set to: ${config.logChannelId || "Not configured"}`,
+    "startup"
+  );
+  logMessage(
+    `Monitored user ID set to: ${config.monitoredUserId || "Not configured"}`,
     "startup"
   );
 
@@ -1198,7 +1217,7 @@ client.on("interactionCreate", async (interaction) => {
           `Manually changing nicknames in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        const result = await changeNicknamesToDutchSnacks(guild);
+        const result = await changeNicknamesToDutchSnacks(guild, false, config);
 
         // Send the result
         let responseMessage =
@@ -1606,6 +1625,133 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
+    // Admin command: test-nickname-monitor
+    else if (commandName === "test-nickname-monitor") {
+      // Check permissions - either admin role in a server or bot owner in DMs
+      let hasPermission = false;
+
+      // If in a guild (server), check for admin role
+      if (interaction.guild) {
+        const member = interaction.member;
+        if (member && member.roles.cache.has(config.adminRoleId)) {
+          hasPermission = true;
+        }
+      }
+
+      // If in DMs, check if it's the bot owner or admin user
+      if (!interaction.guild) {
+        if (
+          interaction.user.id === config.botOwnerId ||
+          interaction.user.id === config.adminUserId
+        ) {
+          hasPermission = true;
+        }
+      }
+
+      if (!hasPermission) {
+        await interaction.reply({
+          content: "❌ You don't have permission to use this command.",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      // Check if monitoring is configured
+      if (!config.monitoredUserId) {
+        await interaction.reply({
+          content:
+            "❌ No user is configured for nickname monitoring. Please set the `MONITORED_USER_ID` environment variable.",
+          ephemeral: true,
+        });
+        return;
+      }
+
+      await interaction.deferReply({ ephemeral: true });
+
+      try {
+        // Find the monitored user in this guild
+        const guild = interaction.guild;
+        if (!guild) {
+          await interaction.editReply({
+            content: "❌ This command can only be used in a server.",
+            ephemeral: true,
+          });
+          return;
+        }
+
+        const monitoredMember = await guild.members
+          .fetch(config.monitoredUserId)
+          .catch(() => null);
+        if (!monitoredMember) {
+          await interaction.editReply({
+            content: `❌ Could not find the monitored user (ID: ${config.monitoredUserId}) in this server.`,
+            ephemeral: true,
+          });
+          return;
+        }
+
+        // Check if the bot can change this user's nickname
+        const botMember = guild.members.me;
+        if (!botMember.permissions.has("ManageNicknames")) {
+          await interaction.editReply({
+            content:
+              "❌ Bot doesn't have 'Manage Nicknames' permission in this server.",
+            ephemeral: true,
+          });
+          return;
+        }
+
+        if (
+          monitoredMember.roles.highest.position >=
+          botMember.roles.highest.position
+        ) {
+          await interaction.editReply({
+            content: `❌ Cannot change nickname for ${monitoredMember.user.tag} due to role hierarchy.`,
+            ephemeral: true,
+          });
+          return;
+        }
+
+        // Get the current nickname
+        const currentNickname =
+          monitoredMember.nickname || monitoredMember.user.username;
+
+        // Change the nickname to "Test Nickname" to trigger the monitoring
+        await monitoredMember.setNickname(
+          "Test Nickname",
+          "Testing nickname monitoring feature"
+        );
+
+        // Set a brief cooldown to prevent the monitoring system from immediately triggering
+        setCooldownForUser(monitoredMember.id);
+
+        await interaction.editReply({
+          content: `✅ Successfully changed ${monitoredMember.user.tag}'s nickname from "${currentNickname}" to "Test Nickname".\n\nNow try changing their nickname manually - the monitoring system will automatically revert it to a random Dutch snack name and send "Nuh Uh" to the main channel! (There's a 5-second cooldown to prevent infinite loops)`,
+          ephemeral: true,
+        });
+
+        // Log the test
+        logMessage(
+          `Admin ${interaction.user.tag} tested nickname monitoring for user ${monitoredMember.user.tag}`,
+          "command",
+          {
+            Admin: `${interaction.user.tag} (${interaction.user.id})`,
+            "Monitored User": `${monitoredMember.user.tag} (${monitoredMember.id})`,
+            Guild: `${guild.name} (${guild.id})`,
+            "Previous Nickname": currentNickname,
+            "Test Nickname": "Test Nickname",
+            Action: "Nickname monitoring test",
+          }
+        );
+      } catch (error) {
+        console.error("Error testing nickname monitoring:", error);
+        await interaction.editReply({
+          content: `❌ Error testing nickname monitoring: ${error.message}`,
+          ephemeral: true,
+        });
+      }
+    }
+
     // Music commands
     else if (commandName === "play") {
       // Get the URL from the options
@@ -1679,6 +1825,17 @@ client.on("interactionCreate", async (interaction) => {
     } else if (interaction.deferred) {
       await interaction.editReply(`❌ An error occurred: ${error.message}`);
     }
+  }
+});
+
+// Handle guild member updates (for nickname monitoring)
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  try {
+    // Handle nickname monitoring
+    await handleNicknameMonitoring(oldMember, newMember, config, logMessage);
+  } catch (error) {
+    console.error(`Error handling guild member update: ${error.message}`);
+    console.error(error.stack);
   }
 });
 

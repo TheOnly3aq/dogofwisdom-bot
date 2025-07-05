@@ -11,7 +11,9 @@
     "change-nicknames": "node src/change-nicknames.js",
     "test-group-snack": "node src/test-group-snack.js",
     "check-timezone": "node src/check-timezone.js",
-    "test-owner-dm": "node src/test-owner-dm.js"
+    "test-owner-dm": "node src/test-owner-dm.js",
+    "test-nickname-monitor": "node src/test-nickname-monitor.js",
+    "test-owner-dm-debug": "node src/test-owner-dm-debug.js"
   },
   "keywords": [],
   "author": "",
