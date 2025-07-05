@@ -410,8 +410,6 @@ const dutchSnacks = [
   "Kwark",
   "Hangop",
   "Vla",
-  "Pudding",
-  "Custard",
 
   // Dutch Politicians (2010 - present)
   "Mark Rutte",
@@ -435,26 +433,30 @@ const dutchSnacks = [
  * @param {Guild} guild - The Discord guild to change nicknames in
  * @param {boolean} forceGroupSnack - Force everyone to have the same snack (for testing)
  * @param {Object} config - Configuration object with settings
- * @returns {Promise<Object>} Object containing success and failure counts
+ * @param {boolean} forceBattleMode - Force battle mode (Pewdiepie vs T-Series) for testing
+ * @returns {Promise<Object>} Object containing success and failure counts, including battle results
  */
 async function changeNicknamesToDutchSnacks(
   guild,
   forceGroupSnack = false,
-  config = { ownerDMsEnabled: true, blacklistedGuilds: [] }
+  config = { ownerDMsEnabled: true, blacklistedGuilds: [] },
+  forceBattleMode = false
 ) {
   // Check if the guild is blacklisted
   if (config.blacklistedGuilds && config.blacklistedGuilds.includes(guild.id)) {
-    console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`);
+    console.log(
+      `Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`
+    );
     return {
       success: 0,
       failed: 0,
       skipped: 0,
       errors: [`Guild "${guild.name}" is blacklisted`],
       groupSnackUsed: false,
-      groupSnack: null
+      groupSnack: null,
     };
   }
-  
+
   console.log(`Changing nicknames in guild "${guild.name}" to Dutch snacks...`);
 
   const result = {
@@ -464,6 +466,9 @@ async function changeNicknamesToDutchSnacks(
     errors: [],
     groupSnackUsed: false,
     groupSnack: null,
+    battleModeUsed: false,
+    pewdiepieCount: 0,
+    tseriesCount: 0,
     ownerSuggestion: false,
     suggestedSnack: null,
   };
@@ -484,9 +489,15 @@ async function changeNicknamesToDutchSnacks(
       return result;
     }
 
-    // Determine if we should use a group snack (10% chance or if forced)
-    const useGroupSnack = forceGroupSnack || Math.random() < 0.1; // 10% chance
+    // Determine which special event to use
+    const randomValue = Math.random();
+    const useGroupSnack =
+      forceGroupSnack ||
+      (randomValue < 0.1 && randomValue >= 0.05 && !forceBattleMode); // 5% chance
+    const useBattleMode =
+      forceBattleMode || (randomValue < 0.05 && !forceGroupSnack); // 5% chance for battle mode
     let groupSnack = null;
+    let battleMode = false;
 
     if (useGroupSnack) {
       // Select one snack for everyone
@@ -496,6 +507,13 @@ async function changeNicknamesToDutchSnacks(
       );
       result.groupSnackUsed = true;
       result.groupSnack = groupSnack;
+    } else if (useBattleMode) {
+      // Battle mode: split between Pewdiepie and T-Series
+      battleMode = true;
+      console.log(
+        `⚔️ BATTLE MODE! The great war begins - Pewdiepie vs T-Series! ⚔️`
+      );
+      result.battleModeUsed = true;
     }
 
     // First, handle the bot's own nickname
@@ -505,6 +523,14 @@ async function changeNicknamesToDutchSnacks(
       if (useGroupSnack) {
         // Use the group snack
         botSnackToUse = groupSnack;
+      } else if (battleMode) {
+        // In battle mode, bot gets a random choice between Pewdiepie and T-Series
+        botSnackToUse = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
+        if (botSnackToUse === "Pewdiepie") {
+          result.pewdiepieCount++;
+        } else {
+          result.tseriesCount++;
+        }
       } else {
         // Get a random Dutch snack
         botSnackToUse =
@@ -544,6 +570,8 @@ async function changeNicknamesToDutchSnacks(
           let suggestedSnack;
           if (useGroupSnack) {
             suggestedSnack = groupSnack;
+          } else if (battleMode) {
+            suggestedSnack = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
           } else {
             suggestedSnack =
               dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
@@ -628,6 +656,25 @@ async function changeNicknamesToDutchSnacks(
         if (useGroupSnack) {
           // Use the group snack
           snackToUse = groupSnack;
+        } else if (battleMode) {
+          // Battle mode: assign based on current balance to keep it roughly 50/50
+          const totalAssigned = result.pewdiepieCount + result.tseriesCount;
+          const pewdiepieRatio =
+            totalAssigned === 0 ? 0 : result.pewdiepieCount / totalAssigned;
+
+          // If Pewdiepie ratio is less than 0.5, favor Pewdiepie, otherwise favor T-Series
+          // Add some randomness to avoid perfect alternating pattern
+          const favorPewdiepie =
+            pewdiepieRatio < 0.5 ||
+            (pewdiepieRatio === 0.5 && Math.random() < 0.5);
+
+          if (favorPewdiepie) {
+            snackToUse = "Pewdiepie";
+            result.pewdiepieCount++;
+          } else {
+            snackToUse = "T-Series";
+            result.tseriesCount++;
+          }
         } else {
           // Get a random Dutch snack
           snackToUse =
@@ -654,9 +701,20 @@ async function changeNicknamesToDutchSnacks(
       }
     }
 
-    console.log(
-      `Nickname change complete for guild "${guild.name}". Success: ${result.success}, Failed: ${result.failed}, Skipped: ${result.skipped}`
-    );
+    let completionMessage = `Nickname change complete for guild "${guild.name}". Success: ${result.success}, Failed: ${result.failed}, Skipped: ${result.skipped}`;
+
+    if (result.battleModeUsed) {
+      completionMessage += ` | ⚔️ BATTLE RESULTS: Pewdiepie: ${result.pewdiepieCount}, T-Series: ${result.tseriesCount}`;
+      const winner =
+        result.pewdiepieCount > result.tseriesCount
+          ? "Pewdiepie"
+          : result.tseriesCount > result.pewdiepieCount
+          ? "T-Series"
+          : "TIE";
+      completionMessage += ` | Winner: ${winner}! 🏆`;
+    }
+
+    console.log(completionMessage);
     return result;
   } catch (error) {
     console.error(
@@ -673,12 +731,14 @@ async function changeNicknamesToDutchSnacks(
  * @param {Guild} guild - The Discord guild
  * @param {boolean} useGroupSnack - Whether to use a group snack or random snack
  * @param {Object} config - Configuration object with settings
+ * @param {boolean} useBattleMode - Whether to use battle mode (Pewdiepie vs T-Series)
  * @returns {Promise<Object>} Object containing the result of the operation
  */
 async function testOwnerDM(
   guild,
   useGroupSnack = false,
-  config = { ownerDMsEnabled: true }
+  config = { ownerDMsEnabled: true },
+  useBattleMode = false
 ) {
   console.log(`Testing owner DM in guild "${guild.name}"...`);
 
@@ -716,6 +776,10 @@ async function testOwnerDM(
       suggestedSnack =
         dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
       console.log(`Using group snack: ${suggestedSnack}`);
+    } else if (useBattleMode) {
+      // Use battle mode - randomly choose between Pewdiepie and T-Series
+      suggestedSnack = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
+      console.log(`Using battle mode snack: ${suggestedSnack}`);
     } else {
       // Get a random Dutch snack
       suggestedSnack =

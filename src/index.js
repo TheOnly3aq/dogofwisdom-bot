@@ -121,6 +121,15 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .toJSON(),
 
+  // Battle mode command (admin only)
+  new SlashCommandBuilder()
+    .setName("battle-mode")
+    .setDescription(
+      "Start the great battle! Split everyone between Pewdiepie and T-Series"
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .toJSON(),
+
   // Check timezone (admin only)
   new SlashCommandBuilder()
     .setName("check-timezone")
@@ -1180,6 +1189,19 @@ client.on("interactionCreate", async (interaction) => {
           responseMessage += `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉\n`;
         }
 
+        if (result.battleModeUsed) {
+          responseMessage += `⚔️ BATTLE MODE ACTIVATED! ⚔️\n`;
+          responseMessage += `Pewdiepie Army: ${result.pewdiepieCount} 👊\n`;
+          responseMessage += `T-Series Forces: ${result.tseriesCount} 🎵\n`;
+          const winner =
+            result.pewdiepieCount > result.tseriesCount
+              ? "Pewdiepie"
+              : result.tseriesCount > result.pewdiepieCount
+              ? "T-Series"
+              : "TIE";
+          responseMessage += `Winner: ${winner}! 🏆\n`;
+        }
+
         if (result.ownerSuggestion) {
           responseMessage += `\n👑 Server owner suggestion: "${result.suggestedSnack}" (sent via DM)`;
         }
@@ -1228,6 +1250,19 @@ client.on("interactionCreate", async (interaction) => {
 
         if (result.groupSnackUsed) {
           responseMessage += `🎉 GROUP SNACK EVENT! Everyone was named "${result.groupSnack}" 🎉\n`;
+        }
+
+        if (result.battleModeUsed) {
+          responseMessage += `⚔️ BATTLE MODE ACTIVATED! ⚔️\n`;
+          responseMessage += `Pewdiepie Army: ${result.pewdiepieCount} 👊\n`;
+          responseMessage += `T-Series Forces: ${result.tseriesCount} 🎵\n`;
+          const winner =
+            result.pewdiepieCount > result.tseriesCount
+              ? "Pewdiepie"
+              : result.tseriesCount > result.pewdiepieCount
+              ? "T-Series"
+              : "TIE";
+          responseMessage += `Winner: ${winner}! 🏆\n`;
         }
 
         if (result.ownerSuggestion) {
@@ -1287,6 +1322,80 @@ client.on("interactionCreate", async (interaction) => {
         console.error("Error testing group snack event:", error);
         await interaction.editReply(
           `❌ Error testing group snack event: ${error.message}`
+        );
+      }
+    }
+
+    // Admin command: battle-mode
+    else if (commandName === "battle-mode") {
+      // Check if the user has the required admin role
+      const member = interaction.member;
+      if (!member.roles.cache.has(config.adminRoleId)) {
+        return interaction.reply({
+          content:
+            "❌ You don't have permission to use this command. You need the admin role.",
+          ephemeral: true,
+        });
+      }
+
+      // Defer the reply as this might take some time
+      await interaction.deferReply();
+
+      try {
+        // Get the guild
+        const guild = interaction.guild;
+
+        // Force battle mode
+        console.log(
+          `⚔️ Starting battle mode in guild "${guild.name}" (initiated by ${interaction.user.tag})`
+        );
+
+        // Change nicknames with forced battle mode
+        const result = await changeNicknamesToDutchSnacks(
+          guild,
+          false,
+          config,
+          true
+        );
+
+        // Send the result
+        let responseMessage =
+          `⚔️ **BATTLE MODE COMPLETE!** ⚔️\n` +
+          `Success: ${result.success}\n` +
+          `Failed: ${result.failed}\n` +
+          `Skipped: ${result.skipped}\n\n` +
+          `🔥 **BATTLE RESULTS** 🔥\n` +
+          `Pewdiepie Army: ${result.pewdiepieCount} 👊\n` +
+          `T-Series Forces: ${result.tseriesCount} 🎵\n`;
+
+        // Determine and announce the winner
+        const winner =
+          result.pewdiepieCount > result.tseriesCount
+            ? "Pewdiepie"
+            : result.tseriesCount > result.pewdiepieCount
+            ? "T-Series"
+            : "TIE";
+
+        if (winner === "TIE") {
+          responseMessage += `\n🤝 **IT'S A TIE!** The battle ends in a draw! 🤝`;
+        } else {
+          responseMessage += `\n🏆 **${winner.toUpperCase()} WINS!** 🏆`;
+          if (winner === "Pewdiepie") {
+            responseMessage += `\n👑 Bro fist! 👊`;
+          } else {
+            responseMessage += `\n🎵 Music conquers all! 🎵`;
+          }
+        }
+
+        if (result.ownerSuggestion) {
+          responseMessage += `\n\n👑 Server owner suggestion: "${result.suggestedSnack}" (sent via DM)`;
+        }
+
+        await interaction.editReply(responseMessage);
+      } catch (error) {
+        console.error("Error starting battle mode:", error);
+        await interaction.editReply(
+          `❌ Error starting battle mode: ${error.message}`
         );
       }
     }
