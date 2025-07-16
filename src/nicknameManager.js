@@ -4,428 +4,79 @@
 
 // Array of Dutch snack names
 const dutchSnacks = [
-  // Traditional Dutch Snacks & Food
-  "Stroopwafel",
-  "Bitterballen",
-  "Kroket",
-  "Frikandel",
-  "Poffertjes",
-  "Hagelslag",
-  "Dropjes",
-  "Oliebollen",
-  "Speculaas",
-  "Tompouce",
-  "Kibbeling",
-  "Haring",
-  "Kaassoufflé",
-  "Gevulde Koek",
-  "Boterkoek",
-  "Ontbijtkoek",
-  "Appeltaart",
-  "Vla",
-  "Pepernoten",
-  "Kroketten",
-  "Pannenkoeken",
-  "Pindakaas",
-  "Beschuit",
-  "Eierkoek",
-  "Rookworst",
-  "Erwtensoep",
-  "Stamppot",
-  "Kaasbroodje",
-  "Saucijzenbroodje",
-  "Frikandelbroodje",
-  "Bossche Bol",
-  "Limburgse Vlaai",
-  "Zeeuwse Bolus",
-  "Krentenbollen",
-  "Suikerbrood",
-  "Roze Koek",
-  "Mergpijpje",
-  "Jodenkoek",
-  "Krakeling",
-  "Bokkenpootje",
-  "Tompoes",
-  "Eierbal",
-  "Bamischijf",
-  "Nasischijf",
-  "Berenklauw",
-  "Mexicano",
-  "Loempia",
-  "Patat Oorlog",
-  "Patat Speciaal",
-  "Kapsalon",
-  "Broodje Gezond",
-  "Broodje Bal",
-  "Broodje Kroket",
-  "Uitsmijter",
-  "Patatje Joppie",
-  "Patatje Pindasaus",
-  "Kipcorn",
-  "Kaastengel",
-  "Bittergarnituur",
-  "Gehaktbal",
-  "Huzarensalade",
-  "Filet Americain",
-  "Ossenworst",
-  "Leverworst",
-  "Boerenkool",
-  "Hutspot",
-  "Zuurkool",
-  "Spruitjes",
-  "Vlaflip",
-  "Hopjesvla",
-  "Chocoladevla",
-  "Vanillevla",
-  "Aardbeivla",
-  "Dubbelvla",
-  "Anijsmelk",
-  "Karnemelk",
-  "Chocomel",
-  "Fristi",
-  "Muisjes",
+  // Disease-related (very offensive)
+  "kanker", // cancer
+  "kankerlijer", // cancer sufferer
+  "tering", // tuberculosis
+  "teringlijer", // TB sufferer
+  "tyfus", // typhus
+  "tyfushond", // typhus dog
+  "klere", // cholera
+  "klerewijf", // cholera woman
+  "pestlijer", // plague sufferer
+  "aidslijer", // AIDS sufferer
 
-  // Latvian Sweet Snacks (in Latvian)
-  "Sklandrausis",
-  "Rupjmaize ar medu",
-  "Maizes zupa",
-  "Auzu pārslu cepumi",
-  "Biezpiena plācenīši",
-  "Saldā biezpiena sieriņš",
-  "Jāņu siers ar rozīnēm",
-  "Zefīrs",
-  "Gotiņa",
-  "Kārums",
-  "Saldējums plombīrs",
-  "Riekstu maize",
-  "Dzērveņu pastila",
-  "Medus kūka",
-  "Kliņģerīši",
-  "Piparkūkas",
-  "Kūka Vecrīga",
-  "Saldā maize",
-  "Saldā biezpiena torte",
-  "Kafijas konfektes",
-  "Kūka Cielaviņa",
-  "Saldā krējuma sieriņš",
-  "Ābolu plātsmaize",
-  "Plūmju ievārījums",
-  "Aveņu zefīrs",
-  "Medus konfektes",
-  // More Latvian Sweet Snacks
-  "Saldā krējuma kūka",
-  "Sviesta cepumi",
-  "Karameles",
-  "Šokolādes konfektes",
-  "Vafeļu torte",
-  "Biezpiena sieriņš ar šokolādi",
-  "Ābolu ievārījums",
-  "Riekstu konfektes",
+  // Religious / blasphemous
+  "godverdomme", // God damn me
+  "godver", // God damn
+  "gvd", // abbreviation of godverdomme
+  "teringgod", // offensive combo
+  "krijg de kolere", // get the cholera (lit.)
 
-  // Latvian Politicians (in Latvian)
-  "Krišjānis Kariņš",
-  "Egils Levits",
-  "Arturs Krišjānis Kariņš",
-  "Edgars Rinkēvičs", //THIS DIDNT EVEN KNOW HIS OWN PRESIDENT
-  "Aigars Kalvītis",
-  "Valdis Dombrovskis",
-  "Andris Šķēle",
-  "Andris Bērziņš",
-  "Māris Kučinskis",
+  // Sexual / body-related
+  "kut", // cunt
+  "kuthoer", // fucking whore
+  "hoer", // whore
+  "hoerenzoon", // son of a whore
+  "lul", // dick
+  "eikel", // dickhead / acorn
+  "pik", // cock
+  "kloten", // balls
+  "klootzak", // scrotum bag
+  "reet", // ass
+  "anus", // anus
+  "lik mijn reet", // lick my ass
 
-  // Dutch Cities & Landmarks
-  "Schiphol",
-  "Deltawerken",
-  "Afsluitdijk",
-  "Hoge Veluwe",
-  "Waddenzee",
-  "Biesbosch",
-  "Haarlem",
-  "Utrecht",
-  "Rotterdam",
-  "Den Haag",
-  "Groningen",
-  "Maastricht",
-  "Eindhoven",
-  "Tilburg",
-  "Breda",
-  "Nijmegen",
-  "Apeldoorn",
-  "Arnhem",
-  "Amersfoort",
-  "Zaandam",
-  "Alkmaar",
-  "Hoorn",
-  "Enkhuizen",
-  "Kampen",
-  "Zwolle",
-  "Deventer",
-  "Zutphen",
+  // Homophobic / discriminatory (offensive slurs)
+  "flikker", // faggot (can also mean "fall" non-offensively)
+  "mietje", // sissy
+  "nicht", // gay (slur in context)
+  "mongool", // mongoloid / retard
+  "debiel", // moron / idiot (can be ableist)
+  "retard", // same as in English
 
-  // Dutch Windmills
-  "Kinderdijkse Molens",
-  "Zaanse Schans Molens",
-  "De Gooyer",
-  "Molen van Sloten",
-  "De Rieker",
-  "Bloemmolen",
-  "De Otter",
-  "De Gekroonde Poelenburg",
-  "Het Jonge Schaap",
-  "De Kat",
-  "De Zoeker",
-  "De Bonte Hen",
-  "Molen",
-  "Korenmolen",
-  "Poldermolen",
+  // General insults
+  "hufter", // bastard
+  "trut", // bitch (female)
+  "slet", // slut
+  "sukkel", // loser
+  "debiel", // idiot
+  "lulhannes", // dickhead (regional)
+  "eikeltje", // little dick / idiot
+  "zak", // bag / jerk
+  "kakker", // snob / spoiled brat
+  "randdebiel", // borderline retard
 
-  // Dutch Flowers & Plants
-  "Tulp",
-  "Tulpen",
-  "Narcis",
-  "Hyacint",
-  "Krokus",
-  "Nederlandse Iris",
-  "Keukenhof Tulp",
-  "Rode Tulp",
-  "Gele Tulp",
-  "Roze Tulp",
-  "Paarse Tulp",
-  "Witte Tulp",
-  "Zwarte Tulp",
-  "Papegaaitulp",
-  "Darwin Tulp",
-  "Triumph Tulp",
-  "Lelie Tulp",
-  "Franje Tulp",
-  "Dubbele Tulp",
-  "Botanische Tulp",
+  // Phrases (commands or expressions)
+  "rot op", // fuck off
+  "donder op", // bugger off
+  "oprotten", // piss off
+  "val dood", // drop dead
+  "krijg de kanker", // get cancer (extremely offensive)
+  "steek je kop in de fik", // set your head on fire
+  "ik schijt op je graf", // I shit on your grave
 
-  // Dutch Culture & Traditions
-  "Koningsdag",
-  "Sinterklaas",
-  "Zwarte Piet",
-  "Bevrijdingsdag",
-  "Dodenherdenking",
-  "Carnaval",
-  "Kermis",
-  "Prinsjesdag",
-  "Oranjekoorts",
-  "Oranje",
-  "Huis van Oranje",
-  "Willem-Alexander",
-  "Maxima",
-  "Beatrix",
-  "Juliana",
-  "Wilhelmina",
-
-  // Dutch Transportation
-  "Fiets",
-  "Bakfiets",
-  "Omafiets",
-  "Tram",
-  "GVB",
-  "NS",
-  "Intercity",
-  "Sprinter",
-  "OV-chipkaart",
-  "Rondvaart",
-
-  // Dutch Weather & Geography
-  "Polder",
-  "Dijk",
-  "Waterland",
-  "Laaglanden",
-  "Zeeland",
-  "Zuiderzee",
-  "IJsselmeer",
-  "Noordzee",
-  "Waddenzee",
-  "Rijn",
-  "Maas",
-  "IJssel",
-  "Schelde",
-
-  // Dutch Animals
-  "Nederlandse Hangoor",
-  "Fries Paard",
-  "Lakenvelder",
-  "Texelse Schaap",
-  "Nederlandse Geit",
-  "Keeshond",
-  "Hollandse Herder",
-  "Stabyhoun",
-  "Wetterhoun",
-  "Markiesje",
-  "Smoushond",
-
-  // Dutch Sports & Activities
-  "Schaatsen",
-  "Elfstedentocht",
-  "Korfbal",
-  "Hockey",
-  "Voetbal",
-  "Ajax",
-  "PSV",
-  "Feyenoord",
-  "Oranje",
-  "Totaalvoetbal",
-  "Johan Cruijff",
-  "Marco van Basten",
-  "Ruud Gullit",
-  "Frank Rijkaard",
-  "Arjen Robben",
-  "Wesley Sneijder",
-  "Robin van Persie",
-  "Virgil van Dijk",
-
-  // Dutch Art & Artists
-  "Rembrandt",
-  "Van Gogh",
-  "Vermeer",
-  "Mondriaan",
-  "Escher",
-  "Frans Hals",
-  "Jan Steen",
-  "Jheronimus Bosch",
-  "De Stijl",
-  "Gouden Eeuw",
-  "Hollandse Meesters",
-  "Nachtwacht",
-  "Meisje met de parel",
-  "Zonnebloemen",
-
-  // Dutch Language & Expressions
-  "Gezellig",
-  "Gezelligheid",
-  "Doe Normaal",
-  "Lekker",
-  "Hoi",
-  "Dag",
-  "Dank je wel",
-  "Alsjeblieft",
-  "Goedemorgen",
-  "Goedemiddag",
-  "Goedenavond",
-  "Welterusten",
-  "Tot ziens",
-  "Proost",
-  "Smakelijk eten",
-
-  // Dutch Companies & Brands
-  "Philips",
-  "Heineken",
-  "Grolsch",
-  "Amstel",
-  "Bavaria",
-  "Albert Heijn",
-  "Jumbo",
-  "HEMA",
-  "Blokker",
-  "Etos",
-  "Kruidvat",
-  "Action",
-  "TomTom",
-  "Coolblue",
-
-  // Dutch Inventions & Innovations
-  "Microscoop",
-  "Telescoop",
-  "Slingerklok",
-  "Brandspuit",
-  "Beurs",
-  "Jenever",
-  "CD",
-  "DVD",
-  "Cassettebandje",
-  "Flitspaal",
-  "Onderzeeër",
-  "Oliebol",
-  "Koekje",
-
-  // Dutch Seasons & Holidays
-  "Sinterklaas",
-  "Pakjesavond",
-  "Nieuwjaar",
-  "Pasen",
-  "Koninginnedag",
-  "Bevrijdingsdag",
-  "Hemelvaartsdag",
-  "Pinksteren",
-  "Kerstmis",
-  "Eerste Kerstdag",
-  "Tweede Kerstdag",
-
-  // Dutch Architecture
-  "Grachtenpand",
-  "Hofje",
-  "Trapgevel",
-  "Klokgevel",
-  "Neckgevel",
-  "Amsterdamse School",
-  "Berlage",
-  "Rietveld",
-  "Kubuswoningen",
-  "Erasmusbrug",
-  "Magere Brug",
-  "Blauwbrug",
-
-  // Dutch Music & Entertainment
-  "André Hazes",
-  "Golden Earring",
-  "Shocking Blue",
-  "Caro Emerald",
-  "Anouk",
-  "Marco Borsato",
-  "Guus Meeuwis",
-  "Acda en de Munnik",
-  "Klein Orkest",
-  "Doe Maar",
-  "Tiësto",
-  "Armin van Buuren",
-  "Hardwell",
-  "Martin Garrix",
-  "Oliver Heldens",
-  "Showtek",
-  "Afrojack",
-  "Fedde le Grand",
-
-  // More Dutch Food Items
-  "Jenever",
-  "Advocaat",
-  "Bitter",
-  "Oranjebitter",
-  "Vieux",
-  "Brandewijn",
-  "Kopstoot",
-  "Boerenjongens",
-  "Boerenmeisjes",
-  "Kandeel",
-  "Bisschopswijn",
-  "Glühwein",
-  "Warme Chocolademelk",
-  "Anijsmelk",
-  "Karnemelk",
-  "Yoghurt",
-  "Kwark",
-  "Hangop",
-  "Vla",
-
-  // Dutch Politicians (2010 - present)
-  "Mark Rutte",
-  "Geert Wilders",
-  "Sigrid Kaag",
-  "Wopke Hoekstra",
-  "Lodewijk Asscher",
-  "Jesse Klaver",
-  "Lilianne Ploumen",
-  "Rob Jetten",
-  "Pieter Omtzigt",
-  "Caroline van der Plas",
-  "Thierry Baudet",
-  "Gert-Jan Segers",
-  "Sybrand Buma",
-  "Femke Halsema",
+  // Combinations / hybrid curses
+  "kankermongool",
+  "teringhoer",
+  "kankerhond",
+  "kankerslet",
+  "godverklotehoer",
+  "kutwijf",
+  "tyfuskut",
+  "klerevent",
+  "eikelkop",
+  "reetlikker",
 ];
 
 /**
