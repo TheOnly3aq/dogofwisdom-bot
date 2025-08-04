@@ -3,81 +3,98 @@
  */
 
 // Array of Dutch snack names
-const dutchSnacks = [
-  // Disease-related (very offensive)
-  "kanker", // cancer
-  "kankerlijer", // cancer sufferer
-  "tering", // tuberculosis
-  "teringlijer", // TB sufferer
-  "tyfus", // typhus
-  "tyfushond", // typhus dog
-  "klere", // cholera
-  "klerewijf", // cholera woman
-  "pestlijer", // plague sufferer
-  "aidslijer", // AIDS sufferer
-
-  // Religious / blasphemous
-  "godverdomme", // God damn me
-  "godver", // God damn
-  "gvd", // abbreviation of godverdomme
-  "teringgod", // offensive combo
-  "krijg de kolere", // get the cholera (lit.)
-
-  // Sexual / body-related
-  "kut", // cunt
-  "kuthoer", // fucking whore
-  "hoer", // whore
-  "hoerenzoon", // son of a whore
-  "lul", // dick
-  "eikel", // dickhead / acorn
-  "pik", // cock
-  "kloten", // balls
-  "klootzak", // scrotum bag
-  "reet", // ass
-  "anus", // anus
-  "lik mijn reet", // lick my ass
-
-  // Homophobic / discriminatory (offensive slurs)
-  "flikker", // faggot (can also mean "fall" non-offensively)
-  "mietje", // sissy
-  "nicht", // gay (slur in context)
-  "mongool", // mongoloid / retard
-  "debiel", // moron / idiot (can be ableist)
-  "retard", // same as in English
-
-  // General insults
-  "hufter", // bastard
-  "trut", // bitch (female)
-  "slet", // slut
-  "sukkel", // loser
-  "debiel", // idiot
-  "lulhannes", // dickhead (regional)
-  "eikeltje", // little dick / idiot
-  "zak", // bag / jerk
-  "kakker", // snob / spoiled brat
-  "randdebiel", // borderline retard
-
-  // Phrases (commands or expressions)
-  "rot op", // fuck off
-  "donder op", // bugger off
-  "oprotten", // piss off
-  "val dood", // drop dead
-  "krijg de kanker", // get cancer (extremely offensive)
-  "steek je kop in de fik", // set your head on fire
-  "ik schijt op je graf", // I shit on your grave
-
-  // Combinations / hybrid curses
-  "kankermongool",
-  "teringhoer",
-  "kankerhond",
-  "kankerslet",
-  "godverklotehoer",
-  "kutwijf",
-  "tyfuskut",
-  "klerevent",
-  "eikelkop",
-  "reetlikker",
+const dutchSwearWords = [
+  "kanker",
+  "tering",
+  "tyfus",
+  "klere",
+  "pest",
+  "aids",
+  "godver",
+  "kut",
+  "hoer",
+  "lul",
+  "eikel",
+  "pik",
+  "kloten",
+  "reet",
+  "anus",
+  "flikker",
+  "mietje",
+  "nicht",
+  "mongool",
+  "debiel",
+  "hufter",
+  "trut",
+  "slet",
+  "sukkel",
+  "zak",
+  "kakker",
+  "randdebiel",
 ];
+
+const dutchSnacks = [
+  "stroopwafel",
+  "frikandel",
+  "kroket",
+  "bitterbal",
+  "kaassoufflé",
+  "patat",
+  "poffertje",
+  "oliebol",
+  "speculaas",
+  "dropje",
+  "ontbijtkoek",
+  "gevuldekoek",
+  "tompoes",
+  "rookworst",
+  "appelflap",
+  "boterkoek",
+  "pepernoot",
+  "krentenbol",
+  "beschuit",
+  "vla",
+  "hagelslag",
+  "muisjes",
+  "bokkepootje",
+  "kletskop",
+  "janhagel",
+  "eierkoek",
+  "boterham",
+  "kapsalon",
+  "bamischijf",
+  "nasischijf",
+  "kibbeling",
+  "haring",
+  "zurebom",
+  "snackballetje",
+  "kaasstengel",
+  "worstenbroodje",
+  "gevuldekoek",
+  "bittergarnituur",
+  "grillworst",
+  "leverworst",
+  "rookvlees",
+  "hamkaas",
+  "frikandelbroodje",
+  "saucijzenbroodje",
+  "speculoos",
+  "gevulde speculaas",
+  "krakeling",
+  "roze koek",
+  "bokkepoot",
+  "kruidnoot",
+];
+
+// Generate all combinations of swear word + snack
+const combinedDutchSnackSwears = [];
+for (const swear of dutchSwearWords) {
+  for (const snack of dutchSnacks) {
+    combinedDutchSnackSwears.push(`${swear}${snack}`);
+  }
+}
+
+module.exports.dutchSnacks = combinedDutchSnackSwears;
 
 /**
  * Changes all members' nicknames in a guild to random Dutch snacks
