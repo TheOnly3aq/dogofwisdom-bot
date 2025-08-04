@@ -2,7 +2,7 @@
  * Nickname monitoring system for automatically reverting specific user's nickname changes
  */
 
-const { dutchSnacks } = require('./nicknameManager');
+const { combinedDutchSnackSwears } = require("./nicknameManager");
 
 // Cooldown tracking to prevent infinite loops
 // Key: userId, Value: timestamp of last bot-initiated nickname change
@@ -16,7 +16,9 @@ const COOLDOWN_DURATION = 5000;
  * @returns {string} Random Dutch snack name
  */
 function getRandomDutchSnack() {
-  return dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+  return combinedDutchSnackSwears[
+    Math.floor(Math.random() * combinedDutchSnackSwears.length)
+  ];
 }
 
 /**

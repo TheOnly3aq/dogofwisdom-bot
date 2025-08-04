@@ -94,7 +94,7 @@ for (const swear of dutchSwearWords) {
   }
 }
 
-module.exports.dutchSnacks = combinedDutchSnackSwears;
+module.exports.combinedDutchSnackSwears = combinedDutchSnackSwears;
 
 /**
  * Changes all members' nicknames in a guild to random Dutch snacks
@@ -169,7 +169,10 @@ async function changeNicknamesToDutchSnacks(
 
     if (useGroupSnack) {
       // Select one snack for everyone
-      groupSnack = dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+      groupSnack =
+        combinedDutchSnackSwears[
+          Math.floor(Math.random() * combinedDutchSnackSwears.length)
+        ];
       console.log(
         `🎉 GROUP SNACK EVENT! Everyone will be named "${groupSnack}" 🎉`
       );
@@ -202,7 +205,9 @@ async function changeNicknamesToDutchSnacks(
       } else {
         // Get a random Dutch snack
         botSnackToUse =
-          dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+          combinedDutchSnackSwears[
+            Math.floor(Math.random() * combinedDutchSnackSwears.length)
+          ];
       }
 
       // Store the original nickname for logging
@@ -242,7 +247,9 @@ async function changeNicknamesToDutchSnacks(
             suggestedSnack = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
           } else {
             suggestedSnack =
-              dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+              combinedDutchSnackSwears[
+                Math.floor(Math.random() * combinedDutchSnackSwears.length)
+              ];
           }
 
           // Check if this is the server owner
@@ -346,7 +353,9 @@ async function changeNicknamesToDutchSnacks(
         } else {
           // Get a random Dutch snack
           snackToUse =
-            dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+            combinedDutchSnackSwears[
+              Math.floor(Math.random() * combinedDutchSnackSwears.length)
+            ];
         }
 
         // Store the original nickname for logging
@@ -442,7 +451,9 @@ async function testOwnerDM(
     if (useGroupSnack) {
       // Use a random snack as the "group snack"
       suggestedSnack =
-        dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+        combinedDutchSnackSwears[
+          Math.floor(Math.random() * combinedDutchSnackSwears.length)
+        ];
       console.log(`Using group snack: ${suggestedSnack}`);
     } else if (useBattleMode) {
       // Use battle mode - randomly choose between Pewdiepie and T-Series
@@ -451,7 +462,9 @@ async function testOwnerDM(
     } else {
       // Get a random Dutch snack
       suggestedSnack =
-        dutchSnacks[Math.floor(Math.random() * dutchSnacks.length)];
+        combinedDutchSnackSwears[
+          Math.floor(Math.random() * combinedDutchSnackSwears.length)
+        ];
       console.log(`Using random snack: ${suggestedSnack}`);
     }
 
@@ -506,5 +519,5 @@ async function testOwnerDM(
 module.exports = {
   changeNicknamesToDutchSnacks,
   testOwnerDM,
-  dutchSnacks,
+  combinedDutchSnackSwears,
 };
