@@ -30,7 +30,7 @@ const config = {
   token: process.env.BOT_TOKEN,
   cronSchedule: process.env.CRON_SCHEDULE || "0 12 * * *", // Default: 12:00 PM every day
   timezone: getLocalTimezone(), // Use local server timezone
-  dailyMessagesEnabled: true, // Default: daily messages are enabled
+  dailyMessagesEnabled: false, // Default: daily messages are disabled
   nicknameChangesEnabled: true, // Default: weekly nickname changes are enabled
   ownerDMsEnabled: true, // Default: DMs to server owner are enabled
   adminRoleId: process.env.ADMIN_ROLE_ID || "1376665402758926487", // Role ID that can control bot features
