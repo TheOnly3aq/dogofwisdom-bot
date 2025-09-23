@@ -27,7 +27,7 @@ const client = new Client({
 });
 
 // Import the nickname manager
-const { changeNicknamesToDutchSnacks } = require("./nicknameManager");
+const { changeNicknamesToEmojiSentences } = require("./nicknameManager");
 
 // Log when the bot is ready
 client.once("ready", async () => {
@@ -96,14 +96,20 @@ async function changeAllNicknames() {
       try {
         // Skip blacklisted guilds
         if (config.blacklistedGuilds.includes(guild.id)) {
-          console.log(`Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`);
+          console.log(
+            `Guild "${guild.name}" (${guild.id}) is blacklisted. Skipping nickname changes.`
+          );
           continue;
         }
-        
+
         console.log(`\n=== Changing nicknames for guild: ${guild.name} ===`);
 
         // Change nicknames to Dutch snacks
-        const result = await changeNicknamesToDutchSnacks(guild, false, config);
+        const result = await changeNicknamesToEmojiSentences(
+          guild,
+          false,
+          config
+        );
 
         console.log(`\n=== Results for ${guild.name} ===`);
         console.log(`Nicknames changed successfully: ${result.success}`);

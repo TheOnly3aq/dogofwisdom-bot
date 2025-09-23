@@ -2,111 +2,154 @@
  * Utility functions for managing Discord nicknames
  */
 
-// Array of Dutch snack names
-const dutchSwearWords = [
-  "kanker",
-  "tering",
-  "tyfus",
-  "klere",
-  "pest",
-  "aids",
-  "godver",
-  "kut",
-  "hoer",
-  "lul",
-  "eikel",
-  "pik",
-  "kloten",
-  "reet",
-  "anus",
-  "flikker",
-  "mietje",
-  "nicht",
-  "mongool",
-  "debiel",
-  "hufter",
-  "trut",
-  "slet",
-  "sukkel",
-  "zak",
-  "kakker",
-  "randdebiel",
+// Emoji sentence templates for weird but understandable combinations (max 7 emojis)
+const emojiSentences = [
+  // Sexual/Dirty combinations (for fun)
+  "🍆 💦 🍑", // eggplant water peach
+  "🍌 🍑 💋", // banana peach kiss
+  "🌭 🍑 🔥", // hotdog peach fire
+  "🥒 💦 🍑", // cucumber water peach
+  "🍆 🍑 👅", // eggplant peach tongue
+  "🍌 🍑 🍆", // banana peach eggplant
+  "🌭 💦 🍑", // hotdog water peach
+  "🥒 🍑 💋", // cucumber peach kiss
+  "🍆 🍑 🔥", // eggplant peach fire
+  "🍌 💦 🍑", // banana water peach
+
+  // Person + Action + Object combinations
+  "👨 🍔 🍽️", // person eating plate
+  "👩 🍕 🚽", // woman pizza toilet
+  "🧑 🍰 🛏️", // person cake bed
+  "👨‍🦲 🍺 🚗", // bald man beer car
+  "👩‍🦱 🍕 🐕", // curly woman pizza dog
+  "🧑‍🦳 🍔 🏠", // old person burger house
+  "👨‍🦰 🍰 🚲", // ginger man cake bike
+  "👩‍🦲 🍺 🏊", // bald woman beer swimming
+  "🧑‍🦱 🍕 🎮", // person pizza gaming
+  "👨‍🦳 🍔 🎵", // old man burger music
+
+  // Weird but understandable
+  "🐕 🍕 🚽", // dog pizza toilet
+  "🐱 🍔 🛏️", // cat burger bed
+  "🐭 🍰 🚗", // mouse cake car
+  "🐹 🍺 🏠", // hamster beer house
+  "🐰 🍕 🚲", // rabbit pizza bike
+  "🦊 🍔 🏊", // fox burger swimming
+  "🐻 🍰 🎮", // bear cake gaming
+  "🐼 🍺 🎵", // panda beer music
+  "🐨 🍕 🚽", // koala pizza toilet
+  "🐯 🍔 🛏️", // tiger burger bed
+
+  // More creative combinations
+  "👻 🍕 🚗", // ghost pizza car
+  "🤖 🍔 🏠", // robot burger house
+  "👽 🍰 🚲", // alien cake bike
+  "🧙‍♂️ 🍺 🏊", // wizard beer swimming
+  "🧙‍♀️ 🍕 🎮", // witch pizza gaming
+  "🧚‍♂️ 🍔 🎵", // fairy burger music
+  "🧚‍♀️ 🍰 🚽", // fairy cake toilet
+  "🧛‍♂️ 🍺 🛏️", // vampire beer bed
+  "🧛‍♀️ 🍕 🚗", // vampire pizza car
+  "🧟‍♂️ 🍔 🏠", // zombie burger house
+
+  // Random weird combinations
+  "🚗 🍕 👨", // car pizza man
+  "🏠 🍔 👩", // house burger woman
+  "🚲 🍰 🧑", // bike cake person
+  "🚽 🍺 👨‍🦲", // toilet beer bald man
+  "🛏️ 🍕 👩‍🦱", // bed pizza curly woman
+  "🎮 🍔 🧑‍🦳", // gaming burger old person
+  "🎵 🍰 👨‍🦰", // music cake ginger man
+  "🏊 🍺 👩‍🦲", // swimming beer bald woman
+  "🚗 🍕 🧑‍🦱", // car pizza person
+  "🏠 🍔 👨‍🦳", // house burger old man
+
+  // More diverse combinations
+  "🍕 🚽 🍔", // pizza toilet burger
+  "🍔 🛏️ 🍰", // burger bed cake
+  "🍰 🚗 🍺", // cake car beer
+  "🍺 🏠 🍕", // beer house pizza
+  "🍕 🚲 🍔", // pizza bike burger
+  "🍔 🏊 🍰", // burger swimming cake
+  "🍰 🎮 🍺", // cake gaming beer
+  "🍺 🎵 🍕", // beer music pizza
+  "🍕 🚽 🍔", // pizza toilet burger
+  "🍔 🛏️ 🍰", // burger bed cake
+
+  // New diverse combinations
+  "👨 🚗 🍕 🍔 🍰", // man car pizza burger cake
+  "👩 🏠 🍺 🚽 🛏️", // woman house beer toilet bed
+  "🧑 🚲 🍕 🎮 🎵", // person bike pizza gaming music
+  "👨‍🦲 🏊 🍔 🍰 🚗", // bald man swimming burger cake car
+  "👩‍🦱 🍕 🐕 🚽 🛏️", // curly woman pizza dog toilet bed
+  "🧑‍🦳 🍔 🏠 🚲 🎮", // old person burger house bike gaming
+  "👨‍🦰 🍰 🚲 🍺 🏊", // ginger man cake bike beer swimming
+  "👩‍🦲 🍺 🏊 🍕 🎮", // bald woman beer swimming pizza gaming
+  "🧑‍🦱 🍕 🎮 🍔 🍰", // person pizza gaming burger cake
+  "👨‍🦳 🍔 🎵 🍺 🚗", // old man burger music beer car
+
+  // More sexual/dirty combinations
+  "🍆 🍑 💦 🔥 👅", // eggplant peach water fire tongue
+  "🍌 🍑 💋 🔥 💦", // banana peach kiss fire water
+  "🌭 🍑 🔥 👅 💋", // hotdog peach fire tongue kiss
+  "🥒 💦 🍑 🔥 👅", // cucumber water peach fire tongue
+  "🍆 🍑 👅 💋 🔥", // eggplant peach tongue kiss fire
+  "🍌 🍑 🍆 💦 🔥", // banana peach eggplant water fire
+  "🌭 💦 🍑 👅 💋", // hotdog water peach tongue kiss
+  "🥒 🍑 💋 🔥 💦", // cucumber peach kiss fire water
+  "🍆 🍑 🔥 💦 👅", // eggplant peach fire water tongue
+  "🍌 💦 🍑 👅 🔥", // banana water peach tongue fire
+
+  // Random weird combinations
+  "🐕 🍕 🚽 🍔 🛏️", // dog pizza toilet burger bed
+  "🐱 🍔 🛏️ 🍰 🚗", // cat burger bed cake car
+  "🐭 🍰 🚗 🍺 🏠", // mouse cake car beer house
+  "🐹 🍺 🏠 🍕 🚲", // hamster beer house pizza bike
+  "🐰 🍕 🚲 🍔 🏊", // rabbit pizza bike burger swimming
+  "🦊 🍔 🏊 🍰 🎮", // fox burger swimming cake gaming
+  "🐻 🍰 🎮 🍺 🎵", // bear cake gaming beer music
+  "🐼 🍺 🎵 🍕 🚽", // panda beer music pizza toilet
+  "🐨 🍕 🚽 🍔 🛏️", // koala pizza toilet burger bed
+  "🐯 🍔 🛏️ 🍰 🚗", // tiger burger bed cake car
+
+  // More creative combinations
+  "👻 🍕 🚗 🍔 🍰", // ghost pizza car burger cake
+  "🤖 🍔 🏠 🍺 🚽", // robot burger house beer toilet
+  "👽 🍰 🚲 🍕 🎮", // alien cake bike pizza gaming
+  "🧙‍♂️ 🍺 🏊 🍔 🍰", // wizard beer swimming burger cake
+  "🧙‍♀️ 🍕 🎮 🍺 🎵", // witch pizza gaming beer music
+  "🧚‍♂️ 🍔 🎵 🍰 🚽", // fairy burger music cake toilet
+  "🧚‍♀️ 🍰 🚽 🍺 🛏️", // fairy cake toilet beer bed
+  "🧛‍♂️ 🍺 🛏️ 🍕 🚗", // vampire beer bed pizza car
+  "🧛‍♀️ 🍕 🚗 🍔 🏠", // vampire pizza car burger house
+  "🧟‍♂️ 🍔 🏠 🍰 🚲", // zombie burger house cake bike
+
+  // Even more diverse combinations
+  "🚗 🍕 👨 🍔 🍰 🍺", // car pizza man burger cake beer
+  "🏠 🍔 👩 🍺 🚽 🛏️", // house burger woman beer toilet bed
+  "🚲 🍰 🧑 🍕 🎮 🎵", // bike cake person pizza gaming music
+  "🚽 🍺 👨‍🦲 🍔 🍰 🚗", // toilet beer bald man burger cake car
+  "🛏️ 🍕 👩‍🦱 🍺 🚽 🍔", // bed pizza curly woman beer toilet burger
+  "🎮 🍔 🧑‍🦳 🍰 🚲 🍺", // gaming burger old person cake bike beer
+  "🎵 🍰 👨‍🦰 🍺 🏊 🍕", // music cake ginger man beer swimming pizza
+  "🏊 🍺 👩‍🦲 🍕 🎮 🍔", // swimming beer bald woman pizza gaming burger
+  "🚗 🍕 🧑‍🦱 🍔 🍰 🍺", // car pizza person burger cake beer
+  "🏠 🍔 👨‍🦳 🍺 🚽 🛏️", // house burger old man beer toilet bed
 ];
 
-const dutchSnacks = [
-  "stroopwafel",
-  "frikandel",
-  "kroket",
-  "bitterbal",
-  "kaassoufflé",
-  "patat",
-  "poffertje",
-  "oliebol",
-  "speculaas",
-  "dropje",
-  "ontbijtkoek",
-  "gevuldekoek",
-  "tompoes",
-  "rookworst",
-  "appelflap",
-  "boterkoek",
-  "pepernoot",
-  "krentenbol",
-  "beschuit",
-  "vla",
-  "hagelslag",
-  "muisjes",
-  "bokkepootje",
-  "kletskop",
-  "janhagel",
-  "eierkoek",
-  "boterham",
-  "kapsalon",
-  "bamischijf",
-  "nasischijf",
-  "kibbeling",
-  "haring",
-  "zurebom",
-  "snackballetje",
-  "kaasstengel",
-  "worstenbroodje",
-  "gevuldekoek",
-  "bittergarnituur",
-  "grillworst",
-  "leverworst",
-  "rookvlees",
-  "hamkaas",
-  "frikandelbroodje",
-  "saucijzenbroodje",
-  "speculoos",
-  "gevulde speculaas",
-  "krakeling",
-  "roze koek",
-  "bokkepoot",
-  "kruidnoot",
-];
-
-// Generate all combinations of swear word + snack
-const combinedDutchSnackSwears = [];
-for (const swear of dutchSwearWords) {
-  for (const snack of dutchSnacks) {
-    combinedDutchSnackSwears.push(`${swear}${snack}`);
-  }
-}
-
-module.exports.combinedDutchSnackSwears = combinedDutchSnackSwears;
+module.exports.emojiSentences = emojiSentences;
 
 /**
- * Changes all members' nicknames in a guild to random Dutch snacks
+ * Changes all members' nicknames in a guild to random emoji sentences
  * @param {Guild} guild - The Discord guild to change nicknames in
- * @param {boolean} forceGroupSnack - Force everyone to have the same snack (for testing)
+ * @param {boolean} forceGroupEmoji - Force everyone to have the same emoji sentence (for testing)
  * @param {Object} config - Configuration object with settings
  * @param {boolean} forceBattleMode - Force battle mode (Pewdiepie vs T-Series) for testing
  * @returns {Promise<Object>} Object containing success and failure counts, including battle results
  */
-async function changeNicknamesToDutchSnacks(
+async function changeNicknamesToEmojiSentences(
   guild,
-  forceGroupSnack = false,
+  forceGroupEmoji = false,
   config = { ownerDMsEnabled: true, blacklistedGuilds: [] },
   forceBattleMode = false
 ) {
@@ -120,25 +163,27 @@ async function changeNicknamesToDutchSnacks(
       failed: 0,
       skipped: 0,
       errors: [`Guild "${guild.name}" is blacklisted`],
-      groupSnackUsed: false,
-      groupSnack: null,
+      groupEmojiUsed: false,
+      groupEmoji: null,
     };
   }
 
-  console.log(`Changing nicknames in guild "${guild.name}" to Dutch snacks...`);
+  console.log(
+    `Changing nicknames in guild "${guild.name}" to emoji sentences...`
+  );
 
   const result = {
     success: 0,
     failed: 0,
     skipped: 0,
     errors: [],
-    groupSnackUsed: false,
-    groupSnack: null,
+    groupEmojiUsed: false,
+    groupEmoji: null,
     battleModeUsed: false,
     pewdiepieCount: 0,
     tseriesCount: 0,
     ownerSuggestion: false,
-    suggestedSnack: null,
+    suggestedEmoji: null,
   };
 
   try {
@@ -159,25 +204,23 @@ async function changeNicknamesToDutchSnacks(
 
     // Determine which special event to use
     const randomValue = Math.random();
-    const useGroupSnack =
-      forceGroupSnack ||
+    const useGroupEmoji =
+      forceGroupEmoji ||
       (randomValue < 0.1 && randomValue >= 0.05 && !forceBattleMode); // 5% chance
     const useBattleMode =
-      forceBattleMode || (randomValue < 0.05 && !forceGroupSnack); // 5% chance for battle mode
-    let groupSnack = null;
+      forceBattleMode || (randomValue < 0.05 && !forceGroupEmoji); // 5% chance for battle mode
+    let groupEmoji = null;
     let battleMode = false;
 
-    if (useGroupSnack) {
-      // Select one snack for everyone
-      groupSnack =
-        combinedDutchSnackSwears[
-          Math.floor(Math.random() * combinedDutchSnackSwears.length)
-        ];
+    if (useGroupEmoji) {
+      // Select one emoji sentence for everyone
+      groupEmoji =
+        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
       console.log(
-        `🎉 GROUP SNACK EVENT! Everyone will be named "${groupSnack}" 🎉`
+        `🎉 GROUP EMOJI EVENT! Everyone will be named "${groupEmoji}" 🎉`
       );
-      result.groupSnackUsed = true;
-      result.groupSnack = groupSnack;
+      result.groupEmojiUsed = true;
+      result.groupEmoji = groupEmoji;
     } else if (useBattleMode) {
       // Battle mode: split between Pewdiepie and T-Series
       battleMode = true;
@@ -189,25 +232,23 @@ async function changeNicknamesToDutchSnacks(
 
     // First, handle the bot's own nickname
     try {
-      // Determine which snack to use for the bot
-      let botSnackToUse;
-      if (useGroupSnack) {
-        // Use the group snack
-        botSnackToUse = groupSnack;
+      // Determine which emoji sentence to use for the bot
+      let botEmojiToUse;
+      if (useGroupEmoji) {
+        // Use the group emoji
+        botEmojiToUse = groupEmoji;
       } else if (battleMode) {
         // In battle mode, bot gets a random choice between Pewdiepie and T-Series
-        botSnackToUse = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
-        if (botSnackToUse === "Pewdiepie") {
+        botEmojiToUse = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
+        if (botEmojiToUse === "Pewdiepie") {
           result.pewdiepieCount++;
         } else {
           result.tseriesCount++;
         }
       } else {
-        // Get a random Dutch snack
-        botSnackToUse =
-          combinedDutchSnackSwears[
-            Math.floor(Math.random() * combinedDutchSnackSwears.length)
-          ];
+        // Get a random emoji sentence
+        botEmojiToUse =
+          emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
       }
 
       // Store the original nickname for logging
@@ -215,12 +256,12 @@ async function changeNicknamesToDutchSnacks(
 
       // Set the bot's nickname
       await botMember.setNickname(
-        botSnackToUse,
-        "Weekly Dutch snack nickname change"
+        botEmojiToUse,
+        "Weekly emoji sentence nickname change"
       );
 
       console.log(
-        `Changed bot's own nickname from "${originalBotNickname}" to "${botSnackToUse}"`
+        `Changed bot's own nickname from "${originalBotNickname}" to "${botEmojiToUse}"`
       );
       result.success++;
     } catch (error) {
@@ -239,17 +280,15 @@ async function changeNicknamesToDutchSnacks(
 
         // Check if member has higher roles than the bot (can't change their nicknames)
         if (member.roles.highest.position >= botMember.roles.highest.position) {
-          // Determine which snack would have been used
-          let suggestedSnack;
-          if (useGroupSnack) {
-            suggestedSnack = groupSnack;
+          // Determine which emoji sentence would have been used
+          let suggestedEmoji;
+          if (useGroupEmoji) {
+            suggestedEmoji = groupEmoji;
           } else if (battleMode) {
-            suggestedSnack = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
+            suggestedEmoji = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
           } else {
-            suggestedSnack =
-              combinedDutchSnackSwears[
-                Math.floor(Math.random() * combinedDutchSnackSwears.length)
-              ];
+            suggestedEmoji =
+              emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
           }
 
           // Check if this is the server owner
@@ -281,12 +320,12 @@ async function changeNicknamesToDutchSnacks(
               // Create a button for changing nickname
               const changeNicknameButton = new ButtonBuilder()
                 .setCustomId(
-                  `change_nickname_${guild.id}_${suggestedSnack.replace(
+                  `change_nickname_${guild.id}_${suggestedEmoji.replace(
                     /\s+/g,
                     "_"
                   )}`
                 )
-                .setLabel(`Change my nickname to ${suggestedSnack}`)
+                .setLabel(`Change my nickname to ${suggestedEmoji}`)
                 .setStyle(ButtonStyle.Primary)
                 .setEmoji("👑");
 
@@ -298,8 +337,8 @@ async function changeNicknamesToDutchSnacks(
               // Send the message with the button
               await member.send({
                 content:
-                  `Hello server owner! I couldn't change your nickname due to Discord permissions, but to match today's Dutch snack theme, ` +
-                  `you might want to change your nickname to: **${suggestedSnack}**\n\n` +
+                  `Hello server owner! I couldn't change your nickname due to Discord permissions, but to match today's emoji sentence theme, ` +
+                  `you might want to change your nickname to: **${suggestedEmoji}**\n\n` +
                   `You can click the button below to get instructions on how to change your nickname, or do it manually.`,
                 components: [row],
               });
@@ -310,7 +349,7 @@ async function changeNicknamesToDutchSnacks(
 
               // Track that we sent a suggestion to the owner
               result.ownerSuggestion = true;
-              result.suggestedSnack = suggestedSnack;
+              result.suggestedEmoji = suggestedEmoji;
             } catch (dmError) {
               console.log(
                 `Could not send DM to ${member.user.tag}: ${dmError.message}`
@@ -326,11 +365,11 @@ async function changeNicknamesToDutchSnacks(
           continue;
         }
 
-        // Determine which snack to use
-        let snackToUse;
-        if (useGroupSnack) {
-          // Use the group snack
-          snackToUse = groupSnack;
+        // Determine which emoji sentence to use
+        let emojiToUse;
+        if (useGroupEmoji) {
+          // Use the group emoji
+          emojiToUse = groupEmoji;
         } else if (battleMode) {
           // Battle mode: assign based on current balance to keep it roughly 50/50
           const totalAssigned = result.pewdiepieCount + result.tseriesCount;
@@ -344,18 +383,16 @@ async function changeNicknamesToDutchSnacks(
             (pewdiepieRatio === 0.5 && Math.random() < 0.5);
 
           if (favorPewdiepie) {
-            snackToUse = "Pewdiepie";
+            emojiToUse = "Pewdiepie";
             result.pewdiepieCount++;
           } else {
-            snackToUse = "T-Series";
+            emojiToUse = "T-Series";
             result.tseriesCount++;
           }
         } else {
-          // Get a random Dutch snack
-          snackToUse =
-            combinedDutchSnackSwears[
-              Math.floor(Math.random() * combinedDutchSnackSwears.length)
-            ];
+          // Get a random emoji sentence
+          emojiToUse =
+            emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
         }
 
         // Store the original nickname for logging
@@ -363,12 +400,12 @@ async function changeNicknamesToDutchSnacks(
 
         // Set the new nickname
         await member.setNickname(
-          snackToUse,
-          "Weekly Dutch snack nickname change"
+          emojiToUse,
+          "Weekly emoji sentence nickname change"
         );
 
         console.log(
-          `Changed nickname for ${member.user.tag} from "${originalNickname}" to "${snackToUse}"`
+          `Changed nickname for ${member.user.tag} from "${originalNickname}" to "${emojiToUse}"`
         );
         result.success++;
       } catch (error) {
@@ -395,7 +432,7 @@ async function changeNicknamesToDutchSnacks(
     return result;
   } catch (error) {
     console.error(
-      `Error in changeNicknamesToDutchSnacks for guild ${guild.name}:`,
+      `Error in changeNicknamesToEmojiSentences for guild ${guild.name}:`,
       error
     );
     result.errors.push(`General error: ${error.message}`);
@@ -406,14 +443,14 @@ async function changeNicknamesToDutchSnacks(
 /**
  * Function to test sending a DM to the server owner with a nickname suggestion
  * @param {Guild} guild - The Discord guild
- * @param {boolean} useGroupSnack - Whether to use a group snack or random snack
+ * @param {boolean} useGroupEmoji - Whether to use a group emoji or random emoji
  * @param {Object} config - Configuration object with settings
  * @param {boolean} useBattleMode - Whether to use battle mode (Pewdiepie vs T-Series)
  * @returns {Promise<Object>} Object containing the result of the operation
  */
 async function testOwnerDM(
   guild,
-  useGroupSnack = false,
+  useGroupEmoji = false,
   config = { ownerDMsEnabled: true },
   useBattleMode = false
 ) {
@@ -423,7 +460,7 @@ async function testOwnerDM(
     success: false,
     ownerFound: false,
     dmSent: false,
-    suggestedSnack: null,
+    suggestedEmoji: null,
     error: null,
   };
 
@@ -446,29 +483,25 @@ async function testOwnerDM(
       return result;
     }
 
-    // Determine which snack to suggest
-    let suggestedSnack;
-    if (useGroupSnack) {
-      // Use a random snack as the "group snack"
-      suggestedSnack =
-        combinedDutchSnackSwears[
-          Math.floor(Math.random() * combinedDutchSnackSwears.length)
-        ];
-      console.log(`Using group snack: ${suggestedSnack}`);
+    // Determine which emoji sentence to suggest
+    let suggestedEmoji;
+    if (useGroupEmoji) {
+      // Use a random emoji sentence as the "group emoji"
+      suggestedEmoji =
+        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+      console.log(`Using group emoji: ${suggestedEmoji}`);
     } else if (useBattleMode) {
       // Use battle mode - randomly choose between Pewdiepie and T-Series
-      suggestedSnack = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
-      console.log(`Using battle mode snack: ${suggestedSnack}`);
+      suggestedEmoji = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
+      console.log(`Using battle mode emoji: ${suggestedEmoji}`);
     } else {
-      // Get a random Dutch snack
-      suggestedSnack =
-        combinedDutchSnackSwears[
-          Math.floor(Math.random() * combinedDutchSnackSwears.length)
-        ];
-      console.log(`Using random snack: ${suggestedSnack}`);
+      // Get a random emoji sentence
+      suggestedEmoji =
+        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+      console.log(`Using random emoji: ${suggestedEmoji}`);
     }
 
-    result.suggestedSnack = suggestedSnack;
+    result.suggestedEmoji = suggestedEmoji;
 
     // Try to send a DM to the server owner with a button
     try {
@@ -482,9 +515,9 @@ async function testOwnerDM(
       // Create a button for changing nickname
       const changeNicknameButton = new ButtonBuilder()
         .setCustomId(
-          `change_nickname_${guild.id}_${suggestedSnack.replace(/\s+/g, "_")}`
+          `change_nickname_${guild.id}_${suggestedEmoji.replace(/\s+/g, "_")}`
         )
-        .setLabel(`Change my nickname to ${suggestedSnack}`)
+        .setLabel(`Change my nickname to ${suggestedEmoji}`)
         .setStyle(ButtonStyle.Primary)
         .setEmoji("👑");
 
@@ -495,7 +528,7 @@ async function testOwnerDM(
       await owner.send({
         content:
           `Hello server owner! This is a test of the nickname suggestion feature.\n` +
-          `If this were a real nickname change, I would suggest changing your nickname to: **${suggestedSnack}**\n\n` +
+          `If this were a real nickname change, I would suggest changing your nickname to: **${suggestedEmoji}**\n\n` +
           `You can click the button below to get instructions on how to change your nickname, or do it manually.`,
         components: [row],
       });
@@ -517,7 +550,7 @@ async function testOwnerDM(
 }
 
 module.exports = {
-  changeNicknamesToDutchSnacks,
+  changeNicknamesToEmojiSentences,
   testOwnerDM,
-  combinedDutchSnackSwears,
+  emojiSentences,
 };

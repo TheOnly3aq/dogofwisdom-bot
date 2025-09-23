@@ -50,21 +50,21 @@ const mockGuild = {
 };
 
 // Import the nickname manager
-const { changeNicknamesToDutchSnacks } = require('./nicknameManager.js');
+const { changeNicknamesToEmojiSentences } = require("./nicknameManager.js");
 
 async function testBattleMode() {
   console.log("🧪 Testing Battle Mode functionality...\n");
-  
+
   try {
     // Test forced battle mode
     console.log("=== TESTING FORCED BATTLE MODE ===");
-    const result = await changeNicknamesToDutchSnacks(
+    const result = await changeNicknamesToEmojiSentences(
       mockGuild,
       false, // forceGroupSnack
       { ownerDMsEnabled: false, blacklistedGuilds: [] }, // config
-      true   // forceBattleMode
+      true // forceBattleMode
     );
-    
+
     console.log("\n📊 Battle Mode Results:");
     console.log(`- Battle Mode Used: ${result.battleModeUsed}`);
     console.log(`- Pewdiepie Count: ${result.pewdiepieCount}`);
@@ -72,25 +72,31 @@ async function testBattleMode() {
     console.log(`- Total Success: ${result.success}`);
     console.log(`- Failed: ${result.failed}`);
     console.log(`- Skipped: ${result.skipped}`);
-    
+
     // Verify battle mode was used
     if (result.battleModeUsed) {
       console.log("✅ Battle mode was successfully activated!");
-      
+
       // Check if distribution is reasonable (not all one side)
       const total = result.pewdiepieCount + result.tseriesCount;
       const pewdiepieRatio = result.pewdiepieCount / total;
-      console.log(`📈 Distribution: ${(pewdiepieRatio * 100).toFixed(1)}% Pewdiepie, ${((1 - pewdiepieRatio) * 100).toFixed(1)}% T-Series`);
-      
+      console.log(
+        `📈 Distribution: ${(pewdiepieRatio * 100).toFixed(1)}% Pewdiepie, ${(
+          (1 - pewdiepieRatio) *
+          100
+        ).toFixed(1)}% T-Series`
+      );
+
       if (pewdiepieRatio > 0.2 && pewdiepieRatio < 0.8) {
         console.log("✅ Distribution looks balanced!");
       } else {
-        console.log("⚠️  Distribution might be too skewed, but this can happen with small samples.");
+        console.log(
+          "⚠️  Distribution might be too skewed, but this can happen with small samples."
+        );
       }
     } else {
       console.log("❌ Battle mode was not activated when forced!");
     }
-    
   } catch (error) {
     console.error("❌ Test failed:", error);
   }

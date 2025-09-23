@@ -2,7 +2,7 @@
  * Nickname monitoring system for automatically reverting specific user's nickname changes
  */
 
-const { combinedDutchSnackSwears } = require("./nicknameManager");
+const { emojiSentences } = require("./nicknameManager");
 
 // Cooldown tracking to prevent infinite loops
 // Key: userId, Value: timestamp of last bot-initiated nickname change
@@ -12,13 +12,11 @@ const nicknameCooldowns = new Map();
 const COOLDOWN_DURATION = 5000;
 
 /**
- * Get a random Dutch snack name
- * @returns {string} Random Dutch snack name
+ * Get a random emoji sentence
+ * @returns {string} Random emoji sentence
  */
-function getRandomDutchSnack() {
-  return combinedDutchSnackSwears[
-    Math.floor(Math.random() * combinedDutchSnackSwears.length)
-  ];
+function getRandomEmojiSentence() {
+  return emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
 }
 
 /**
@@ -29,10 +27,10 @@ function getRandomDutchSnack() {
 function isUserInCooldown(userId) {
   const lastChange = nicknameCooldowns.get(userId);
   if (!lastChange) return false;
-  
+
   const now = Date.now();
   const timeSinceLastChange = now - lastChange;
-  
+
   return timeSinceLastChange < COOLDOWN_DURATION;
 }
 
@@ -42,7 +40,7 @@ function isUserInCooldown(userId) {
  */
 function setCooldownForUser(userId) {
   nicknameCooldowns.set(userId, Date.now());
-  
+
   // Clean up old cooldowns to prevent memory leaks
   setTimeout(() => {
     nicknameCooldowns.delete(userId);
@@ -56,7 +54,12 @@ function setCooldownForUser(userId) {
  * @param {Object} config - Configuration object
  * @param {Function} logMessage - Logging function
  */
-async function handleNicknameMonitoring(oldMember, newMember, config, logMessage) {
+async function handleNicknameMonitoring(
+  oldMember,
+  newMember,
+  config,
+  logMessage
+) {
   try {
     // Check if monitoring is enabled and user ID is configured
     if (!config.monitoredUserId) {
@@ -131,21 +134,21 @@ async function handleNicknameMonitoring(oldMember, newMember, config, logMessage
       return;
     }
 
-    // Get a random Dutch snack name
-    const randomSnack = getRandomDutchSnack();
+    // Get a random emoji sentence
+    const randomEmoji = getRandomEmojiSentence();
 
     console.log(
       `Monitored user ${newMember.user.tag} changed nickname from "${
         oldNickname || newMember.user.username
       }" to "${
         newNickname || newMember.user.username
-      }". Changing to "${randomSnack}"`
+      }". Changing to "${randomEmoji}"`
     );
 
-    // Change the nickname to a random Dutch snack
+    // Change the nickname to a random emoji sentence
     await newMember.setNickname(
-      randomSnack,
-      "Automatic nickname monitoring - reverting to Dutch snack"
+      randomEmoji,
+      "Automatic nickname monitoring - reverting to emoji sentence"
     );
 
     // Set cooldown to prevent infinite loop
@@ -222,8 +225,11 @@ async function handleNicknameMonitoring(oldMember, newMember, config, logMessage
       `Successfully changed monitored user's nickname to "${randomSnack}"`
     );
   } catch (error) {
-    console.error(`Error in nickname monitoring for user ${newMember.user.tag}:`, error);
-    
+    console.error(
+      `Error in nickname monitoring for user ${newMember.user.tag}:`,
+      error
+    );
+
     // Log the error
     if (logMessage) {
       logMessage(
@@ -233,7 +239,7 @@ async function handleNicknameMonitoring(oldMember, newMember, config, logMessage
           User: `${newMember.user.tag} (${newMember.id})`,
           Guild: `${newMember.guild.name} (${newMember.guild.id})`,
           Error: error.message,
-          Status: "Error"
+          Status: "Error",
         }
       );
     }
@@ -242,7 +248,7 @@ async function handleNicknameMonitoring(oldMember, newMember, config, logMessage
 
 module.exports = {
   handleNicknameMonitoring,
-  getRandomDutchSnack,
+  getRandomEmojiSentence,
   isUserInCooldown,
   setCooldownForUser,
 };

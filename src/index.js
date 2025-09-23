@@ -470,8 +470,8 @@ client.once("ready", async () => {
 
             console.log(`Changing nicknames for guild: ${guild.name}`);
 
-            // Change nicknames to Dutch snacks
-            const result = await changeNicknamesToDutchSnacks(
+            // Change nicknames to emoji sentences
+            const result = await changeNicknamesToEmojiSentences(
               guild,
               false,
               config
@@ -601,7 +601,7 @@ const {
   createChannelInCategory,
 } = require("./categoryManager");
 const {
-  changeNicknamesToDutchSnacks,
+  changeNicknamesToEmojiSentences,
   testOwnerDM,
 } = require("./nicknameManager");
 const { sendDirectMessage } = require("./directMessageManager");
@@ -1175,8 +1175,12 @@ client.on("interactionCreate", async (interaction) => {
           `Testing nickname changes in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        // Change nicknames to Dutch snacks
-        const result = await changeNicknamesToDutchSnacks(guild, false, config);
+        // Change nicknames to emoji sentences
+        const result = await changeNicknamesToEmojiSentences(
+          guild,
+          false,
+          config
+        );
 
         // Send the result
         let responseMessage =
@@ -1239,7 +1243,11 @@ client.on("interactionCreate", async (interaction) => {
           `Manually changing nicknames in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        const result = await changeNicknamesToDutchSnacks(guild, false, config);
+        const result = await changeNicknamesToEmojiSentences(
+          guild,
+          false,
+          config
+        );
 
         // Send the result
         let responseMessage =
@@ -1302,8 +1310,12 @@ client.on("interactionCreate", async (interaction) => {
           `Testing group snack event in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        // Change nicknames to Dutch snacks with forced group snack
-        const result = await changeNicknamesToDutchSnacks(guild, true, config);
+        // Change nicknames to emoji sentences with forced group emoji
+        const result = await changeNicknamesToEmojiSentences(
+          guild,
+          true,
+          config
+        );
 
         // Send the result
         let responseMessage =
@@ -1351,7 +1363,7 @@ client.on("interactionCreate", async (interaction) => {
         );
 
         // Change nicknames with forced battle mode
-        const result = await changeNicknamesToDutchSnacks(
+        const result = await changeNicknamesToEmojiSentences(
           guild,
           false,
           config,
