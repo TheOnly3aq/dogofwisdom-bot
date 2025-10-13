@@ -475,22 +475,20 @@ async function changeNicknamesToFunnyNames(
       failed: 0,
       skipped: 0,
       errors: [`Guild "${guild.name}" is blacklisted`],
-      groupEmojiUsed: false,
-      groupEmoji: null,
+      groupNameUsed: false,
+      groupName: null,
     };
   }
 
-  console.log(
-    `Changing nicknames in guild "${guild.name}" to emoji sentences...`
-  );
+  console.log(`Changing nicknames in guild "${guild.name}" to funny names...`);
 
   const result = {
     success: 0,
     failed: 0,
     skipped: 0,
     errors: [],
-    groupEmojiUsed: false,
-    groupEmoji: null,
+    groupNameUsed: false,
+    groupName: null,
     battleModeUsed: false,
     pewdiepieCount: 0,
     tseriesCount: 0,
@@ -516,22 +514,22 @@ async function changeNicknamesToFunnyNames(
 
     // Determine which special event to use
     const randomValue = Math.random();
-    const useGroupEmoji =
-      forceGroupEmoji ||
+    const useGroupName =
+      forceGroupName ||
       (randomValue < 0.1 && randomValue >= 0.05 && !forceBattleMode); // 5% chance
     const useBattleMode =
-      forceBattleMode || (randomValue < 0.05 && !forceGroupEmoji); // 5% chance for battle mode
-    let groupEmoji = null;
+      forceBattleMode || (randomValue < 0.05 && !forceGroupName); // 5% chance for battle mode
+    let groupName = null;
     let battleMode = false;
 
-    if (useGroupEmoji) {
-      // Select one emoji sentence for everyone
-      groupEmoji = funnyNames[Math.floor(Math.random() * funnyNames.length)];
+    if (useGroupName) {
+      // Select one funny name for everyone
+      groupName = funnyNames[Math.floor(Math.random() * funnyNames.length)];
       console.log(
-        `🎉 GROUP EMOJI EVENT! Everyone will be named "${groupEmoji}" 🎉`
+        `🎉 GROUP NAME EVENT! Everyone will be named "${groupName}" 🎉`
       );
-      result.groupEmojiUsed = true;
-      result.groupEmoji = groupEmoji;
+      result.groupNameUsed = true;
+      result.groupName = groupName;
     } else if (useBattleMode) {
       // Battle mode: split between Pewdiepie and T-Series
       battleMode = true;
@@ -543,11 +541,11 @@ async function changeNicknamesToFunnyNames(
 
     // First, handle the bot's own nickname
     try {
-      // Determine which emoji sentence to use for the bot
+      // Determine which funny name to use for the bot
       let botEmojiToUse;
-      if (useGroupEmoji) {
-        // Use the group emoji
-        botEmojiToUse = groupEmoji;
+      if (useGroupName) {
+        // Use the group name
+        botEmojiToUse = groupName;
       } else if (battleMode) {
         // In battle mode, bot gets a random choice between Pewdiepie and T-Series
         botEmojiToUse = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
@@ -591,10 +589,10 @@ async function changeNicknamesToFunnyNames(
 
         // Check if member has higher roles than the bot (can't change their nicknames)
         if (member.roles.highest.position >= botMember.roles.highest.position) {
-          // Determine which emoji sentence would have been used
+          // Determine which funny name would have been used
           let suggestedEmoji;
-          if (useGroupEmoji) {
-            suggestedEmoji = groupEmoji;
+          if (useGroupName) {
+            suggestedEmoji = groupName;
           } else if (battleMode) {
             suggestedEmoji = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
           } else {
@@ -676,11 +674,11 @@ async function changeNicknamesToFunnyNames(
           continue;
         }
 
-        // Determine which emoji sentence to use
+        // Determine which funny name to use
         let emojiToUse;
-        if (useGroupEmoji) {
-          // Use the group emoji
-          emojiToUse = groupEmoji;
+        if (useGroupName) {
+          // Use the group name
+          emojiToUse = groupName;
         } else if (battleMode) {
           // Battle mode: assign based on current balance to keep it roughly 50/50
           const totalAssigned = result.pewdiepieCount + result.tseriesCount;
@@ -754,14 +752,14 @@ async function changeNicknamesToFunnyNames(
 /**
  * Function to test sending a DM to the server owner with a nickname suggestion
  * @param {Guild} guild - The Discord guild
- * @param {boolean} useGroupEmoji - Whether to use a group emoji or random emoji
+ * @param {boolean} useGroupName - Whether to use a group name or random name
  * @param {Object} config - Configuration object with settings
  * @param {boolean} useBattleMode - Whether to use battle mode (Pewdiepie vs T-Series)
  * @returns {Promise<Object>} Object containing the result of the operation
  */
 async function testOwnerDM(
   guild,
-  useGroupEmoji = false,
+  useGroupName = false,
   config = { ownerDMsEnabled: true },
   useBattleMode = false
 ) {
@@ -796,7 +794,7 @@ async function testOwnerDM(
 
     // Determine which emoji sentence to suggest
     let suggestedEmoji;
-    if (useGroupEmoji) {
+    if (useGroupName) {
       // Use a random emoji sentence as the "group emoji"
       suggestedEmoji =
         funnyNames[Math.floor(Math.random() * funnyNames.length)];
