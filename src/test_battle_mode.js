@@ -50,7 +50,7 @@ const mockGuild = {
 };
 
 // Import the nickname manager
-const { changeNicknamesToEmojiSentences } = require("./nicknameManager.js");
+const { changeNicknamesToFunnyNames } = require("./nicknameManager.js");
 
 async function testBattleMode() {
   console.log("🧪 Testing Battle Mode functionality...\n");
@@ -58,7 +58,7 @@ async function testBattleMode() {
   try {
     // Test forced battle mode
     console.log("=== TESTING FORCED BATTLE MODE ===");
-    const result = await changeNicknamesToEmojiSentences(
+    const result = await changeNicknamesToFunnyNames(
       mockGuild,
       false, // forceGroupSnack
       { ownerDMsEnabled: false, blacklistedGuilds: [] }, // config

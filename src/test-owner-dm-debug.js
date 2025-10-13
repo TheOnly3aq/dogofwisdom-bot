@@ -4,7 +4,7 @@
 
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
-const { changeNicknamesToEmojiSentences } = require("./nicknameManager");
+const { changeNicknamesToFunnyNames } = require("./nicknameManager");
 
 // Configuration
 const config = {
@@ -67,7 +67,7 @@ client.once("ready", async () => {
     console.log(`\n🧪 Testing owner DM functionality...`);
 
     // Test the nickname change function
-    const result = await changeNicknamesToEmojiSentences(guild, false, config);
+    const result = await changeNicknamesToFunnyNames(guild, false, config);
 
     console.log(`\n📊 Results:`);
     console.log(`✅ Success: ${result.success}`);

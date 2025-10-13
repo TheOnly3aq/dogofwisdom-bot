@@ -18,7 +18,7 @@ const client = new Client({
 });
 
 // Import the nickname manager
-const { changeNicknamesToEmojiSentences } = require("./nicknameManager");
+const { changeNicknamesToFunnyNames } = require("./nicknameManager");
 
 // Log when the bot is ready
 client.once("ready", async () => {

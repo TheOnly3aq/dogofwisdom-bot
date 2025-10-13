@@ -2,7 +2,7 @@
  * Nickname monitoring system for automatically reverting specific user's nickname changes
  */
 
-const { emojiSentences } = require("./nicknameManager");
+const { funnyNames } = require("./nicknameManager");
 
 // Cooldown tracking to prevent infinite loops
 // Key: userId, Value: timestamp of last bot-initiated nickname change
@@ -12,11 +12,11 @@ const nicknameCooldowns = new Map();
 const COOLDOWN_DURATION = 5000;
 
 /**
- * Get a random emoji sentence
- * @returns {string} Random emoji sentence
+ * Get a random funny name
+ * @returns {string} Random funny name
  */
-function getRandomEmojiSentence() {
-  return emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+function getRandomFunnyName() {
+  return funnyNames[Math.floor(Math.random() * funnyNames.length)];
 }
 
 /**
@@ -134,21 +134,21 @@ async function handleNicknameMonitoring(
       return;
     }
 
-    // Get a random emoji sentence
-    const randomEmoji = getRandomEmojiSentence();
+    // Get a random funny name
+    const randomName = getRandomFunnyName();
 
     console.log(
       `Monitored user ${newMember.user.tag} changed nickname from "${
         oldNickname || newMember.user.username
       }" to "${
         newNickname || newMember.user.username
-      }". Changing to "${randomEmoji}"`
+      }". Changing to "${randomName}"`
     );
 
-    // Change the nickname to a random emoji sentence
+    // Change the nickname to a random funny name
     await newMember.setNickname(
-      randomEmoji,
-      "Automatic nickname monitoring - reverting to emoji sentence"
+      randomName,
+      "Automatic nickname monitoring - reverting to funny name"
     );
 
     // Set cooldown to prevent infinite loop
@@ -202,7 +202,7 @@ async function handleNicknameMonitoring(
       logMessage(
         `Successfully reverted monitored user ${
           newMember.user.tag
-        }'s nickname to "${randomSnack}"${
+        }'s nickname to "${randomName}"${
           messageSent
             ? ' and sent "Nuh Uh" message to main channel'
             : " but failed to send message"
@@ -213,7 +213,7 @@ async function handleNicknameMonitoring(
           Guild: `${newMember.guild.name} (${newMember.guild.id})`,
           "Old Nickname": oldNickname || newMember.user.username,
           "Attempted Nickname": newNickname || newMember.user.username,
-          "Reverted To": randomSnack,
+          "Reverted To": randomName,
           "Message Sent": messageSent ? "Yes" : "No",
           "Message Error": messageError || "None",
           Status: "Success",
@@ -222,7 +222,7 @@ async function handleNicknameMonitoring(
     }
 
     console.log(
-      `Successfully changed monitored user's nickname to "${randomSnack}"`
+      `Successfully changed monitored user's nickname to "${randomName}"`
     );
   } catch (error) {
     console.error(
@@ -248,7 +248,7 @@ async function handleNicknameMonitoring(
 
 module.exports = {
   handleNicknameMonitoring,
-  getRandomEmojiSentence,
+  getRandomFunnyName,
   isUserInCooldown,
   setCooldownForUser,
 };

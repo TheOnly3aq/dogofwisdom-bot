@@ -2,154 +2,466 @@
  * Utility functions for managing Discord nicknames
  */
 
-// Emoji sentence templates for weird but understandable combinations (max 7 emojis)
-const emojiSentences = [
-  // Sexual/Dirty combinations (for fun)
-  "🍆 💦 🍑", // eggplant water peach
-  "🍌 🍑 💋", // banana peach kiss
-  "🌭 🍑 🔥", // hotdog peach fire
-  "🥒 💦 🍑", // cucumber water peach
-  "🍆 🍑 👅", // eggplant peach tongue
-  "🍌 🍑 🍆", // banana peach eggplant
-  "🌭 💦 🍑", // hotdog water peach
-  "🥒 🍑 💋", // cucumber peach kiss
-  "🍆 🍑 🔥", // eggplant peach fire
-  "🍌 💦 🍑", // banana water peach
+// Funny real names for stupid but hilarious Discord nicknames
+const funnyNames = [
+  // Classic stupid names
+  "Dick Butkus",
+  "Rusty Kuntz",
+  "Dick Trickle",
+  "Dick Pole",
+  "Dick Pound",
+  "Dick Smothers",
+  "Dick Van Dyke",
+  "Dick Cheney",
+  "Dick Vitale",
+  "Dick Wolf",
 
-  // Person + Action + Object combinations
-  "👨 🍔 🍽️", // person eating plate
-  "👩 🍕 🚽", // woman pizza toilet
-  "🧑 🍰 🛏️", // person cake bed
-  "👨‍🦲 🍺 🚗", // bald man beer car
-  "👩‍🦱 🍕 🐕", // curly woman pizza dog
-  "🧑‍🦳 🍔 🏠", // old person burger house
-  "👨‍🦰 🍰 🚲", // ginger man cake bike
-  "👩‍🦲 🍺 🏊", // bald woman beer swimming
-  "🧑‍🦱 🍕 🎮", // person pizza gaming
-  "👨‍🦳 🍔 🎵", // old man burger music
+  // More ridiculous real names
+  "Harry Baals",
+  "Harry Dick",
+  "Harry Johnson",
+  "Harry Cox",
+  "Harry Weiner",
+  "Harry Butts",
+  "Harry Pussy",
+  "Harry Sack",
+  "Harry Nuts",
+  "Harry Balls",
 
-  // Weird but understandable
-  "🐕 🍕 🚽", // dog pizza toilet
-  "🐱 🍔 🛏️", // cat burger bed
-  "🐭 🍰 🚗", // mouse cake car
-  "🐹 🍺 🏠", // hamster beer house
-  "🐰 🍕 🚲", // rabbit pizza bike
-  "🦊 🍔 🏊", // fox burger swimming
-  "🐻 🍰 🎮", // bear cake gaming
-  "🐼 🍺 🎵", // panda beer music
-  "🐨 🍕 🚽", // koala pizza toilet
-  "🐯 🍔 🛏️", // tiger burger bed
+  // Silly but real names
+  "Ben Dover",
+  "Ben Gay",
+  "Ben Johnson",
+  "Ben Dover Jr",
+  "Ben Dover Sr",
+  "Ben Dover III",
+  "Ben Dover IV",
+  "Ben Dover V",
+  "Ben Dover VI",
+  "Ben Dover VII",
 
-  // More creative combinations
-  "👻 🍕 🚗", // ghost pizza car
-  "🤖 🍔 🏠", // robot burger house
-  "👽 🍰 🚲", // alien cake bike
-  "🧙‍♂️ 🍺 🏊", // wizard beer swimming
-  "🧙‍♀️ 🍕 🎮", // witch pizza gaming
-  "🧚‍♂️ 🍔 🎵", // fairy burger music
-  "🧚‍♀️ 🍰 🚽", // fairy cake toilet
-  "🧛‍♂️ 🍺 🛏️", // vampire beer bed
-  "🧛‍♀️ 🍕 🚗", // vampire pizza car
-  "🧟‍♂️ 🍔 🏠", // zombie burger house
-
-  // Random weird combinations
-  "🚗 🍕 👨", // car pizza man
-  "🏠 🍔 👩", // house burger woman
-  "🚲 🍰 🧑", // bike cake person
-  "🚽 🍺 👨‍🦲", // toilet beer bald man
-  "🛏️ 🍕 👩‍🦱", // bed pizza curly woman
-  "🎮 🍔 🧑‍🦳", // gaming burger old person
-  "🎵 🍰 👨‍🦰", // music cake ginger man
-  "🏊 🍺 👩‍🦲", // swimming beer bald woman
-  "🚗 🍕 🧑‍🦱", // car pizza person
-  "🏠 🍔 👨‍🦳", // house burger old man
-
-  // More diverse combinations
-  "🍕 🚽 🍔", // pizza toilet burger
-  "🍔 🛏️ 🍰", // burger bed cake
-  "🍰 🚗 🍺", // cake car beer
-  "🍺 🏠 🍕", // beer house pizza
-  "🍕 🚲 🍔", // pizza bike burger
-  "🍔 🏊 🍰", // burger swimming cake
-  "🍰 🎮 🍺", // cake gaming beer
-  "🍺 🎵 🍕", // beer music pizza
-  "🍕 🚽 🍔", // pizza toilet burger
-  "🍔 🛏️ 🍰", // burger bed cake
-
-  // New diverse combinations
-  "👨 🚗 🍕 🍔 🍰", // man car pizza burger cake
-  "👩 🏠 🍺 🚽 🛏️", // woman house beer toilet bed
-  "🧑 🚲 🍕 🎮 🎵", // person bike pizza gaming music
-  "👨‍🦲 🏊 🍔 🍰 🚗", // bald man swimming burger cake car
-  "👩‍🦱 🍕 🐕 🚽 🛏️", // curly woman pizza dog toilet bed
-  "🧑‍🦳 🍔 🏠 🚲 🎮", // old person burger house bike gaming
-  "👨‍🦰 🍰 🚲 🍺 🏊", // ginger man cake bike beer swimming
-  "👩‍🦲 🍺 🏊 🍕 🎮", // bald woman beer swimming pizza gaming
-  "🧑‍🦱 🍕 🎮 🍔 🍰", // person pizza gaming burger cake
-  "👨‍🦳 🍔 🎵 🍺 🚗", // old man burger music beer car
-
-  // More sexual/dirty combinations
-  "🍆 🍑 💦 🔥 👅", // eggplant peach water fire tongue
-  "🍌 🍑 💋 🔥 💦", // banana peach kiss fire water
-  "🌭 🍑 🔥 👅 💋", // hotdog peach fire tongue kiss
-  "🥒 💦 🍑 🔥 👅", // cucumber water peach fire tongue
-  "🍆 🍑 👅 💋 🔥", // eggplant peach tongue kiss fire
-  "🍌 🍑 🍆 💦 🔥", // banana peach eggplant water fire
-  "🌭 💦 🍑 👅 💋", // hotdog water peach tongue kiss
-  "🥒 🍑 💋 🔥 💦", // cucumber peach kiss fire water
-  "🍆 🍑 🔥 💦 👅", // eggplant peach fire water tongue
-  "🍌 💦 🍑 👅 🔥", // banana water peach tongue fire
-
-  // Random weird combinations
-  "🐕 🍕 🚽 🍔 🛏️", // dog pizza toilet burger bed
-  "🐱 🍔 🛏️ 🍰 🚗", // cat burger bed cake car
-  "🐭 🍰 🚗 🍺 🏠", // mouse cake car beer house
-  "🐹 🍺 🏠 🍕 🚲", // hamster beer house pizza bike
-  "🐰 🍕 🚲 🍔 🏊", // rabbit pizza bike burger swimming
-  "🦊 🍔 🏊 🍰 🎮", // fox burger swimming cake gaming
-  "🐻 🍰 🎮 🍺 🎵", // bear cake gaming beer music
-  "🐼 🍺 🎵 🍕 🚽", // panda beer music pizza toilet
-  "🐨 🍕 🚽 🍔 🛏️", // koala pizza toilet burger bed
-  "🐯 🍔 🛏️ 🍰 🚗", // tiger burger bed cake car
+  // Funny last names
+  "Mike Hunt",
+  "Mike Litoris",
+  "Mike Oxlong",
+  "Mike Hawk",
+  "Mike Rotch",
+  "Mike Hunt Jr",
+  "Mike Hunt Sr",
+  "Mike Hunt III",
+  "Mike Hunt IV",
+  "Mike Hunt V",
 
   // More creative combinations
-  "👻 🍕 🚗 🍔 🍰", // ghost pizza car burger cake
-  "🤖 🍔 🏠 🍺 🚽", // robot burger house beer toilet
-  "👽 🍰 🚲 🍕 🎮", // alien cake bike pizza gaming
-  "🧙‍♂️ 🍺 🏊 🍔 🍰", // wizard beer swimming burger cake
-  "🧙‍♀️ 🍕 🎮 🍺 🎵", // witch pizza gaming beer music
-  "🧚‍♂️ 🍔 🎵 🍰 🚽", // fairy burger music cake toilet
-  "🧚‍♀️ 🍰 🚽 🍺 🛏️", // fairy cake toilet beer bed
-  "🧛‍♂️ 🍺 🛏️ 🍕 🚗", // vampire beer bed pizza car
-  "🧛‍♀️ 🍕 🚗 🍔 🏠", // vampire pizza car burger house
-  "🧟‍♂️ 🍔 🏠 🍰 🚲", // zombie burger house cake bike
+  "Hugh Jass",
+  "Hugh Janus",
+  "Hugh Mungus",
+  "Hugh G. Rection",
+  "Hugh Jorgan",
+  "Hugh Hefner",
+  "Hugh Grant",
+  "Hugh Laurie",
+  "Hugh Jackman",
+  "Hugh Bonneville",
 
-  // Even more diverse combinations
-  "🚗 🍕 👨 🍔 🍰 🍺", // car pizza man burger cake beer
-  "🏠 🍔 👩 🍺 🚽 🛏️", // house burger woman beer toilet bed
-  "🚲 🍰 🧑 🍕 🎮 🎵", // bike cake person pizza gaming music
-  "🚽 🍺 👨‍🦲 🍔 🍰 🚗", // toilet beer bald man burger cake car
-  "🛏️ 🍕 👩‍🦱 🍺 🚽 🍔", // bed pizza curly woman beer toilet burger
-  "🎮 🍔 🧑‍🦳 🍰 🚲 🍺", // gaming burger old person cake bike beer
-  "🎵 🍰 👨‍🦰 🍺 🏊 🍕", // music cake ginger man beer swimming pizza
-  "🏊 🍺 👩‍🦲 🍕 🎮 🍔", // swimming beer bald woman pizza gaming burger
-  "🚗 🍕 🧑‍🦱 🍔 🍰 🍺", // car pizza person burger cake beer
-  "🏠 🍔 👨‍🦳 🍺 🚽 🛏️", // house burger old man beer toilet bed
+  // Silly but real names
+  "Willie Stroker",
+  "Willie Nelson",
+  "Willie Mays",
+  "Willie Wonka",
+  "Willie Shakespeare",
+  "Willie Wonka Jr",
+  "Willie Wonka Sr",
+  "Willie Wonka III",
+  "Willie Wonka IV",
+  "Willie Wonka V",
+
+  // More ridiculous names
+  "Peter File",
+  "Peter Griffin",
+  "Peter Parker",
+  "Peter Pan",
+  "Peter Piper",
+  "Peter Rabbit",
+  "Peter Venkman",
+  "Peter Quill",
+  "Peter Pettigrew",
+  "Peter Dinklage",
+
+  // Funny combinations
+  "Jack Mehoff",
+  "Jack Daniels",
+  "Jack Black",
+  "Jack White",
+  "Jack Johnson",
+  "Jack Nicholson",
+  "Jack Lemmon",
+  "Jack Lemmon Jr",
+  "Jack Lemmon Sr",
+  "Jack Lemmon III",
+
+  // More silly names
+  "Phil McCrackin",
+  "Phil Collins",
+  "Phil Jackson",
+  "Phil Mickelson",
+  "Phil Spector",
+  "Phil McGraw",
+  "Phil Donahue",
+  "Phil Hartman",
+  "Phil Silvers",
+  "Phil Harris",
+
+  // Ridiculous but real names
+  "Seymour Butts",
+  "Seymour Hersh",
+  "Seymour Skinner",
+  "Seymour Cray",
+  "Seymour Papert",
+  "Seymour Benzer",
+  "Seymour Hersh",
+  "Seymour Hersh Jr",
+  "Seymour Hersh Sr",
+  "Seymour Hersh III",
+
+  // More funny names
+  "Dixie Normous",
+  "Dixie Carter",
+  "Dixie Chicks",
+  "Dixie Lee Ray",
+  "Dixie Dean",
+  "Dixie Walker",
+  "Dixie Howell",
+  "Dixie Evans",
+  "Dixie Kong",
+  "Dixie Kong Jr",
+
+  // Silly but real names
+  "Anita Bath",
+  "Anita Baker",
+  "Anita Hill",
+  "Anita Bryant",
+  "Anita O'Day",
+  "Anita Ekberg",
+  "Anita Page",
+  "Anita Louise",
+  "Anita Stewart",
+  "Anita Garibaldi",
+
+  // More ridiculous names
+  "Eileen Dover",
+  "Eileen Brennan",
+  "Eileen Heckart",
+  "Eileen Atkins",
+  "Eileen Davidson",
+  "Eileen Ford",
+  "Eileen Gray",
+  "Eileen Ivers",
+  "Eileen Joyce",
+  "Eileen O'Higgins",
+
+  // Funny combinations
+  "Wayne Kerr",
+  "Wayne Gretzky",
+  "Wayne Newton",
+  "Wayne Brady",
+  "Wayne Knight",
+  "Wayne Rooney",
+  "Wayne Shorter",
+  "Wayne Static",
+  "Wayne Wang",
+  "Wayne Wang Jr",
+
+  // More silly names
+  "Pat Myaz",
+  "Pat Sajak",
+  "Pat Boone",
+  "Pat Benatar",
+  "Pat Morita",
+  "Pat Robertson",
+  "Pat Riley",
+  "Pat Summit",
+  "Pat Tillman",
+  "Pat Tillman Jr",
+
+  // Ridiculous but real names
+  "Chris P. Bacon",
+  "Chris Rock",
+  "Chris Evans",
+  "Chris Hemsworth",
+  "Chris Pratt",
+  "Chris Pine",
+  "Chris Brown",
+  "Chris Martin",
+  "Chris Cornell",
+  "Chris Farley",
+
+  // More funny names
+  "Justin Case",
+  "Justin Timberlake",
+  "Justin Bieber",
+  "Justin Trudeau",
+  "Justin Theroux",
+  "Justin Long",
+  "Justin Hartley",
+  "Justin Chambers",
+  "Justin Chatwin",
+  "Justin Chatwin Jr",
+
+  // Silly but real names
+  "Barry McCockiner",
+  "Barry Manilow",
+  "Barry White",
+  "Barry Bonds",
+  "Barry Sanders",
+  "Barry Goldwater",
+  "Barry Gibb",
+  "Barry Levinson",
+  "Barry Sonnenfeld",
+  "Barry Sonnenfeld Jr",
+
+  // More ridiculous names
+  "Terry Cloth",
+  "Terry Crews",
+  "Terry Bradshaw",
+  "Terry Gilliam",
+  "Terry Jones",
+  "Terry Pratchett",
+  "Terry O'Quinn",
+  "Terry Kinney",
+  "Terry Kinney Jr",
+  "Terry Kinney Sr",
+
+  // Funny combinations
+  "Randy Marsh",
+  "Randy Johnson",
+  "Randy Quaid",
+  "Randy Newman",
+  "Randy Travis",
+  "Randy Jackson",
+  "Randy Orton",
+  "Randy Moss",
+  "Randy Savage",
+  "Randy Savage Jr",
+
+  // More silly names
+  "Doug Hole",
+  "Doug Flutie",
+  "Doug E. Fresh",
+  "Doug Liman",
+  "Doug Jones",
+  "Doug Bradley",
+  "Doug Hutchison",
+  "Doug Savant",
+  "Doug Savant Jr",
+  "Doug Savant Sr",
+
+  // Ridiculous but real names
+  "Nick Gurr",
+  "Nick Nolte",
+  "Nick Cage",
+  "Nick Offerman",
+  "Nick Swardson",
+  "Nick Kroll",
+  "Nick Cannon",
+  "Nick Lachey",
+  "Nick Jonas",
+  "Nick Jonas Jr",
+
+  // More funny names
+  "Tom Foolery",
+  "Tom Hanks",
+  "Tom Cruise",
+  "Tom Brady",
+  "Tom Selleck",
+  "Tom Petty",
+  "Tom Waits",
+  "Tom Jones",
+  "Tom Arnold",
+  "Tom Arnold Jr",
+
+  // Silly but real names
+  "Bill Ding",
+  "Bill Gates",
+  "Bill Clinton",
+  "Bill Murray",
+  "Bill Cosby",
+  "Bill Nye",
+  "Bill Maher",
+  "Bill O'Reilly",
+  "Bill Paxton",
+  "Bill Paxton Jr",
+
+  // More ridiculous names
+  "Al Coholic",
+  "Al Pacino",
+  "Al Gore",
+  "Al Sharpton",
+  "Al Green",
+  "Al Roker",
+  "Al Michaels",
+  "Al Michaels Jr",
+  "Al Michaels Sr",
+  "Al Michaels III",
+
+  // Funny combinations
+  "Gene Pool",
+  "Gene Hackman",
+  "Gene Wilder",
+  "Gene Kelly",
+  "Gene Simmons",
+  "Gene Autry",
+  "Gene Tierney",
+  "Gene Tierney Jr",
+  "Gene Tierney Sr",
+  "Gene Tierney III",
+
+  // More silly names
+  "Sue Permarket",
+  "Sue Ellen",
+  "Sue Grafton",
+  "Sue Monk Kidd",
+  "Sue Townsend",
+  "Sue Johanson",
+  "Sue Johanson Jr",
+  "Sue Johanson Sr",
+  "Sue Johanson III",
+  "Sue Johanson IV",
+
+  // Ridiculous but real names
+  "Mary Christmas",
+  "Mary Poppins",
+  "Mary Tyler Moore",
+  "Mary Steenburgen",
+  "Mary McDonnell",
+  "Mary McDonnell Jr",
+  "Mary McDonnell Sr",
+  "Mary McDonnell III",
+  "Mary McDonnell IV",
+  "Mary McDonnell V",
+
+  // More funny names
+  "April Showers",
+  "April O'Neil",
+  "April Bowlby",
+  "April Grace",
+  "April Matson",
+  "April Matson Jr",
+  "April Matson Sr",
+  "April Matson III",
+  "April Matson IV",
+  "April Matson V",
+
+  // Silly but real names
+  "May Flowers",
+  "May West",
+  "May Britt",
+  "May Robson",
+  "May Whitty",
+  "May Whitty Jr",
+  "May Whitty Sr",
+  "May Whitty III",
+  "May Whitty IV",
+  "May Whitty V",
+
+  // More ridiculous names
+  "June Bug",
+  "June Lockhart",
+  "June Allyson",
+  "June Havoc",
+  "June Havoc Jr",
+  "June Havoc Sr",
+  "June Havoc III",
+  "June Havoc IV",
+  "June Havoc V",
+  "June Havoc VI",
+
+  // Funny combinations
+  "July Fourth",
+  "July Garland",
+  "July Garland Jr",
+  "July Garland Sr",
+  "July Garland III",
+  "July Garland IV",
+  "July Garland V",
+  "July Garland VI",
+  "July Garland VII",
+  "July Garland VIII",
+
+  // More silly names
+  "August West",
+  "August Wilson",
+  "August Strindberg",
+  "August Strindberg Jr",
+  "August Strindberg Sr",
+  "August Strindberg III",
+  "August Strindberg IV",
+  "August Strindberg V",
+  "August Strindberg VI",
+  "August Strindberg VII",
+
+  // Ridiculous but real names
+  "September Morn",
+  "September Morn Jr",
+  "September Morn Sr",
+  "September Morn III",
+  "September Morn IV",
+  "September Morn V",
+  "September Morn VI",
+  "September Morn VII",
+  "September Morn VIII",
+  "September Morn IX",
+
+  // More funny names
+  "October Sky",
+  "October Sky Jr",
+  "October Sky Sr",
+  "October Sky III",
+  "October Sky IV",
+  "October Sky V",
+  "October Sky VI",
+  "October Sky VII",
+  "October Sky VIII",
+  "October Sky IX",
+
+  // Silly but real names
+  "November Rain",
+  "November Rain Jr",
+  "November Rain Sr",
+  "November Rain III",
+  "November Rain IV",
+  "November Rain V",
+  "November Rain VI",
+  "November Rain VII",
+  "November Rain VIII",
+  "November Rain IX",
+
+  // More ridiculous names
+  "December Bride",
+  "December Bride Jr",
+  "December Bride Sr",
+  "December Bride III",
+  "December Bride IV",
+  "December Bride V",
+  "December Bride VI",
+  "December Bride VII",
+  "December Bride VIII",
+  "December Bride IX",
 ];
 
-module.exports.emojiSentences = emojiSentences;
+module.exports.funnyNames = funnyNames;
 
 /**
- * Changes all members' nicknames in a guild to random emoji sentences
+ * Changes all members' nicknames in a guild to random funny names
  * @param {Guild} guild - The Discord guild to change nicknames in
- * @param {boolean} forceGroupEmoji - Force everyone to have the same emoji sentence (for testing)
+ * @param {boolean} forceGroupName - Force everyone to have the same funny name (for testing)
  * @param {Object} config - Configuration object with settings
  * @param {boolean} forceBattleMode - Force battle mode (Pewdiepie vs T-Series) for testing
  * @returns {Promise<Object>} Object containing success and failure counts, including battle results
  */
-async function changeNicknamesToEmojiSentences(
+async function changeNicknamesToFunnyNames(
   guild,
-  forceGroupEmoji = false,
+  forceGroupName = false,
   config = { ownerDMsEnabled: true, blacklistedGuilds: [] },
   forceBattleMode = false
 ) {
@@ -214,8 +526,7 @@ async function changeNicknamesToEmojiSentences(
 
     if (useGroupEmoji) {
       // Select one emoji sentence for everyone
-      groupEmoji =
-        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+      groupEmoji = funnyNames[Math.floor(Math.random() * funnyNames.length)];
       console.log(
         `🎉 GROUP EMOJI EVENT! Everyone will be named "${groupEmoji}" 🎉`
       );
@@ -248,7 +559,7 @@ async function changeNicknamesToEmojiSentences(
       } else {
         // Get a random emoji sentence
         botEmojiToUse =
-          emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+          funnyNames[Math.floor(Math.random() * funnyNames.length)];
       }
 
       // Store the original nickname for logging
@@ -288,7 +599,7 @@ async function changeNicknamesToEmojiSentences(
             suggestedEmoji = Math.random() < 0.5 ? "Pewdiepie" : "T-Series";
           } else {
             suggestedEmoji =
-              emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+              funnyNames[Math.floor(Math.random() * funnyNames.length)];
           }
 
           // Check if this is the server owner
@@ -392,7 +703,7 @@ async function changeNicknamesToEmojiSentences(
         } else {
           // Get a random emoji sentence
           emojiToUse =
-            emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+            funnyNames[Math.floor(Math.random() * funnyNames.length)];
         }
 
         // Store the original nickname for logging
@@ -432,7 +743,7 @@ async function changeNicknamesToEmojiSentences(
     return result;
   } catch (error) {
     console.error(
-      `Error in changeNicknamesToEmojiSentences for guild ${guild.name}:`,
+      `Error in changeNicknamesToFunnyNames for guild ${guild.name}:`,
       error
     );
     result.errors.push(`General error: ${error.message}`);
@@ -488,7 +799,7 @@ async function testOwnerDM(
     if (useGroupEmoji) {
       // Use a random emoji sentence as the "group emoji"
       suggestedEmoji =
-        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+        funnyNames[Math.floor(Math.random() * funnyNames.length)];
       console.log(`Using group emoji: ${suggestedEmoji}`);
     } else if (useBattleMode) {
       // Use battle mode - randomly choose between Pewdiepie and T-Series
@@ -497,7 +808,7 @@ async function testOwnerDM(
     } else {
       // Get a random emoji sentence
       suggestedEmoji =
-        emojiSentences[Math.floor(Math.random() * emojiSentences.length)];
+        funnyNames[Math.floor(Math.random() * funnyNames.length)];
       console.log(`Using random emoji: ${suggestedEmoji}`);
     }
 
@@ -550,7 +861,7 @@ async function testOwnerDM(
 }
 
 module.exports = {
-  changeNicknamesToEmojiSentences,
+  changeNicknamesToFunnyNames,
   testOwnerDM,
-  emojiSentences,
+  funnyNames,
 };

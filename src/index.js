@@ -470,8 +470,8 @@ client.once("ready", async () => {
 
             console.log(`Changing nicknames for guild: ${guild.name}`);
 
-            // Change nicknames to emoji sentences
-            const result = await changeNicknamesToEmojiSentences(
+            // Change nicknames to funny names
+            const result = await changeNicknamesToFunnyNames(
               guild,
               false,
               config
@@ -601,7 +601,7 @@ const {
   createChannelInCategory,
 } = require("./categoryManager");
 const {
-  changeNicknamesToEmojiSentences,
+  changeNicknamesToFunnyNames,
   testOwnerDM,
 } = require("./nicknameManager");
 const { sendDirectMessage } = require("./directMessageManager");
@@ -1176,7 +1176,7 @@ client.on("interactionCreate", async (interaction) => {
         );
 
         // Change nicknames to emoji sentences
-        const result = await changeNicknamesToEmojiSentences(
+        const result = await changeNicknamesToFunnyNames(
           guild,
           false,
           config
@@ -1243,7 +1243,7 @@ client.on("interactionCreate", async (interaction) => {
           `Manually changing nicknames in guild "${guild.name}" (initiated by ${interaction.user.tag})`
         );
 
-        const result = await changeNicknamesToEmojiSentences(
+        const result = await changeNicknamesToFunnyNames(
           guild,
           false,
           config
@@ -1311,7 +1311,7 @@ client.on("interactionCreate", async (interaction) => {
         );
 
         // Change nicknames to emoji sentences with forced group emoji
-        const result = await changeNicknamesToEmojiSentences(
+        const result = await changeNicknamesToFunnyNames(
           guild,
           true,
           config
@@ -1363,7 +1363,7 @@ client.on("interactionCreate", async (interaction) => {
         );
 
         // Change nicknames with forced battle mode
-        const result = await changeNicknamesToEmojiSentences(
+        const result = await changeNicknamesToFunnyNames(
           guild,
           false,
           config,

@@ -25,7 +25,7 @@ const client = new Client({
 });
 
 // Import the nickname manager
-const { changeNicknamesToEmojiSentences } = require("./nicknameManager");
+const { changeNicknamesToFunnyNames } = require("./nicknameManager");
 
 // Log when the bot is ready
 client.once("ready", async () => {
@@ -104,8 +104,8 @@ async function testGroupSnack() {
 
         console.log(`\n=== Testing GROUP SNACK for guild: ${guild.name} ===`);
 
-        // Change nicknames to the same Dutch snack (force group snack)
-        const result = await changeNicknamesToEmojiSentences(
+        // Change nicknames to the same funny name (force group name)
+        const result = await changeNicknamesToFunnyNames(
           guild,
           true,
           config
